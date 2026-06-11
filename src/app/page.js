@@ -301,24 +301,17 @@ function apiStage(s) {
   if (s.includes("FINAL")) return "FINAL";
   return "GROUP";
 }
-// Pulls today's World Cup fixtures and merges them into the game.
-// Returns { ok, error } — never throws.
+// Pulls today's World Cup fixtures via our own server route (avoids CORS,
+// keeps the key server-side, and never throws back into the page).
 async function fetchFixtures(apiKey) {
   if (!apiKey) return { ok: false, error: "no-key" };
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const r = await fetch(`https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${today}&dateTo=${today}`,
-      { headers: { "X-Auth-Token": apiKey } });
-    if (!r.ok) {
-      const msg = r.status === 403 ? "Invalid API key — check it in Admin."
-        : r.status === 429 ? "Rate limited — wait a minute and try again."
-        : r.status === 404 ? "World Cup fixtures aren't live in the API yet — add them manually for now."
-        : `API error (${r.status}).`;
-      return { ok: false, error: msg };
+    const r = await fetch(`/api/fixtures?key=${encodeURIComponent(apiKey)}`);
+    const payload = await r.json().catch(() => ({}));
+    if (!r.ok || payload.error) {
+      return { ok: false, error: payload.error || `API error (${r.status}).` };
     }
-    const data = await r.json();
-    const apiMatches = data.matches || [];
-    // mutate shared store: add/update teams + matches
+    const apiMatches = payload.matches || [];
     const g = await loadGame();
     for (const am of apiMatches) {
       const nameA = am.homeTeam?.name || "TBA", nameB = am.awayTeam?.name || "TBA";
@@ -331,7 +324,7 @@ async function fetchFixtures(apiKey) {
         : (am.status === "IN_PLAY" || am.status === "PAUSED") ? "live" : "scheduled";
       const existing = g.matches.find((x) => x.apiId === String(am.id));
       if (existing) {
-        existing.status = status === "live" ? "scheduled" : status; // keep "live" cosmetic only
+        existing.status = status === "live" ? "scheduled" : status;
         existing.live = status === "live";
         if (status === "finished" && am.score?.fullTime) {
           if (am.score.fullTime.home != null) existing.scoreA = am.score.fullTime.home;
@@ -346,7 +339,7 @@ async function fetchFixtures(apiKey) {
     await persist(g);
     return { ok: true, error: "" };
   } catch (e) {
-    return { ok: false, error: "Network error — check your connection." };
+    return { ok: false, error: "Couldn't reach the fixtures service. Add matches manually for now." };
   }
 }
 
@@ -906,18 +899,18 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
       <div className="h-sec">League setup</div>
       <div className="panel grid2">
         <label className="barlow muted" style={{ fontSize: 12 }}>Group name
-          <input style={{ width: "100%", marginTop: 4 }} value={game.config.groupName}
-            onChange={(e) => mutate((g) => { g.config.groupName = e.target.value; })} /></label>
+          <input key={"gn" + game.config.groupName} style={{ width: "100%", marginTop: 4 }} defaultValue={game.config.groupName}
+            onBlur={(e) => mutate((g) => { g.config.groupName = e.target.value; })} /></label>
         <label className="barlow muted" style={{ fontSize: 12 }}>Buy-in per player
           <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-            <input style={{ width: 64 }} value={game.config.currency} aria-label="currency symbol"
-              onChange={(e) => mutate((g) => { g.config.currency = e.target.value; })} />
-            <input style={{ flex: 1 }} inputMode="decimal" value={game.config.buyIn}
-              onChange={(e) => mutate((g) => { g.config.buyIn = Number(e.target.value) || 0; })} />
+            <input key={"cur" + game.config.currency} style={{ width: 64 }} defaultValue={game.config.currency} aria-label="currency symbol"
+              onBlur={(e) => mutate((g) => { g.config.currency = e.target.value; })} />
+            <input key={"buy" + game.config.buyIn} style={{ flex: 1 }} inputMode="decimal" defaultValue={game.config.buyIn}
+              onBlur={(e) => mutate((g) => { g.config.buyIn = Number(e.target.value) || 0; })} />
           </div></label>
         <label className="barlow muted" style={{ fontSize: 12 }}>Admin password
-          <input style={{ width: "100%", marginTop: 4 }} value={game.config.adminPass}
-            onChange={(e) => mutate((g) => { g.config.adminPass = e.target.value; })} /></label>
+          <input key={"pw" + game.config.adminPass} style={{ width: "100%", marginTop: 4 }} defaultValue={game.config.adminPass}
+            onBlur={(e) => mutate((g) => { g.config.adminPass = e.target.value; })} /></label>
         <label className="barlow muted" style={{ fontSize: 12 }}>Final 8 picks
           <button className={`btn ${game.config.final8Open ? "btn-danger" : "btn-gold"}`} style={{ width: "100%", marginTop: 4 }}
             onClick={() => mutate((g) => { g.config.final8Open = !g.config.final8Open; })}>
