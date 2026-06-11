@@ -388,11 +388,9 @@ function matchResult(m) {
 function pickPoints(m, pick) {
   if (!pick || m.status !== "finished") return 0;
   const res = matchResult(m);
-  const [base, bonus] = DAILY_PTS[m.stage] || [3, 2];
+  const [base] = DAILY_PTS[m.stage] || [3];
   if (pick.pred !== res) return 0;
-  let pts = base;
-  if (pick.sa !== "" && pick.sb !== "" && Number(pick.sa) === m.scoreA && Number(pick.sb) === m.scoreB) pts += bonus;
-  return pts;
+  return base; // flat points for a correct result — no scoreline bonus
 }
 function teamUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_VALUE[t.furthest] || 0); }
 function teamGroupUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_RANK[t.furthest] >= 1 ? 10 : 0); }
@@ -637,16 +635,6 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
               <button className={btnCls("D")} disabled={locked || !me} onClick={() => setPick(m, { pred: "D" })}>Draw</button>
               <button className={btnCls("B")} disabled={locked || !me} onClick={() => setPick(m, { pred: "B" })}>{b?.name} win</button>
             </div>
-            {!locked && me && (
-              <div className="scoreline">
-                <span className="barlow muted" style={{ fontSize: 12 }}>Scoreline bonus</span>
-                <input inputMode="numeric" value={myPick?.sa ?? ""} placeholder="0" aria-label="home goals"
-                  onChange={(e) => setPick(m, { sa: e.target.value.replace(/\D/g, "") })} />
-                <span className="bebas">:</span>
-                <input inputMode="numeric" value={myPick?.sb ?? ""} placeholder="0" aria-label="away goals"
-                  onChange={(e) => setPick(m, { sb: e.target.value.replace(/\D/g, "") })} />
-              </div>
-            )}
             {!locked && m.status !== "void" && <div className="lockline"><Countdown to={new Date(lockAt).toISOString()} /></div>}
             {locked && m.status !== "void" && (
               <div className="others">
@@ -656,7 +644,6 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
                   const pts = pickPoints(m, pk);
                   const cls = m.status === "finished" && pk ? (pk.pred === res ? "chip ok" : "chip bad") : "chip";
                   return <span key={p.id} className={cls}>{p.avatar} {p.name}: {lab}
-                    {pk && pk.sa !== "" && pk.sb !== "" ? ` (${pk.sa}-${pk.sb})` : ""}
                     {m.status === "finished" ? ` · +${pts}` : ""}</span>;
                 })}
               </div>
@@ -664,7 +651,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
           </div>
         );
       })}
-      <div className="note">All kickoff times are shown in your own timezone, automatically. Scoring — Group 3 (+2 scoreline) · R32/R16 5 (+3) · QF 8 (+4) · SF 12 (+5) · Final 15 (+5). Picks lock 2 hours before kickoff. Miss the window and it's 0 — no catch-up.</div>
+      <div className="note">All kickoff times are shown in your own timezone, automatically. Scoring — Group 3 · R32/R16 5 · QF 8 · SF 12 · Final 15 for a correct result. Picks lock 2 hours before kickoff. Miss the window and it's 0 — no catch-up.</div>
     </div>
   );
 }
@@ -854,7 +841,7 @@ function LeaderboardPage({ game }) {
                 const lab = pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : "Draw";
                 const pts = pickPoints(m, pk);
                 return <div key={m.id} style={{ padding: "3px 0", color: pts > 0 ? "#bdf3d2" : "#f1a0a7" }}>
-                  {a?.flag} {m.scoreA}–{m.scoreB} {b?.flag} · picked {lab}{pk.sa !== "" ? ` (${pk.sa}-${pk.sb})` : ""} · +{pts}
+                  {a?.flag} {m.scoreA}–{m.scoreB} {b?.flag} · picked {lab} · +{pts}
                 </div>;
               })}
             </div>
@@ -1168,7 +1155,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v11</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v12</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1203,7 +1190,7 @@ export default function App() {
       <Confetti burst={burst} />
       <nav className="nav">
         <span style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v11</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v12</span></div>
         <span className="pot-badge">💰 {money(game.config.currency, pot)}</span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
