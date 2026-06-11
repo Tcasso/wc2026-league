@@ -346,7 +346,10 @@ async function fetchFixtureData(apiKey) {
 // Merges fetched fixtures into the league object (mutates g in place).
 function mergeFixtures(g, apiMatches) {
   for (const am of apiMatches) {
-    const nameA = am.homeTeam?.name || "TBA", nameB = am.awayTeam?.name || "TBA";
+    // Knockout games with undecided teams come through blank — skip them.
+    // They merge in automatically once the real teams are known.
+    if (!am.homeTeam?.name || !am.awayTeam?.name) continue;
+    const nameA = am.homeTeam.name, nameB = am.awayTeam.name;
     let tA = g.teams.find((t) => t.name === nameA);
     if (!tA) { tA = { id: uid(), name: nameA, flag: flagFor(nameA), eligible: true, furthest: "none", wonAll3: false }; g.teams.push(tA); }
     let tB = g.teams.find((t) => t.name === nameB);
@@ -368,6 +371,12 @@ function mergeFixtures(g, apiMatches) {
         kickoff: am.utcDate, stage, status: status === "live" ? "scheduled" : status, live: status === "live",
         scoreA: am.score?.fullTime?.home ?? null, scoreB: am.score?.fullTime?.away ?? null });
     }
+  }
+  // Clean up any "TBA" placeholders created by earlier versions.
+  const tbaIds = new Set(g.teams.filter((t) => t.name === "TBA").map((t) => t.id));
+  if (tbaIds.size > 0) {
+    g.matches = g.matches.filter((m) => !tbaIds.has(m.teamA) && !tbaIds.has(m.teamB));
+    g.teams = g.teams.filter((t) => !tbaIds.has(t.id));
   }
 }
 
@@ -1156,7 +1165,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v9</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v10</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1172,7 +1181,7 @@ export default function App() {
       <Confetti burst={burst} />
       <nav className="nav">
         <span style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v9</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v10</span></div>
         <span className="pot-badge">💰 {money(game.config.currency, pot)}</span>
         <select className="who" value={meId} onChange={(e) => setMeId(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
