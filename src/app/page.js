@@ -358,7 +358,8 @@ function mergeFixtures(g, apiMatches) {
     if (existing) {
       existing.status = status === "live" ? "scheduled" : status;
       existing.live = status === "live";
-      if (status === "finished" && am.score?.fullTime) {
+      // carry the score for live AND finished matches (live = running score)
+      if ((status === "finished" || status === "live") && am.score?.fullTime) {
         if (am.score.fullTime.home != null) existing.scoreA = am.score.fullTime.home;
         if (am.score.fullTime.away != null) existing.scoreB = am.score.fullTime.away;
       }
@@ -522,7 +523,9 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
                 </div>
                 <div className="face">
                   <div className="team"><span className="fl">{a?.flag}</span><span className="nm">{a?.name}</span></div>
-                  <div className="vs">VS</div>
+                  {isLive && m.scoreA != null && m.scoreB != null
+                    ? <div className="score">{m.scoreA} – {m.scoreB}</div>
+                    : <div className="vs">VS</div>}
                   <div className="team"><span className="fl">{b?.flag}</span><span className="nm">{b?.name}</span></div>
                 </div>
               </div>
@@ -576,6 +579,8 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
   const setPick = (m, patch) => mutate((g) => {
+    // hard guard: no pick changes within 1 min of kickoff, even if the UI lagged
+    if (Date.now() >= new Date(m.kickoff).getTime() - 7200000) return;
     if (!g.picks[m.id]) g.picks[m.id] = {};
     const cur = g.picks[m.id][me.id] || { pred: null, sa: "", sb: "", at: Date.now() };
     g.picks[m.id][me.id] = { ...cur, ...patch, at: Date.now() };
@@ -593,7 +598,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
       {matches.length === 0 && <div className="panel muted">No {STAGE_LABEL[stageTab]} fixtures yet.</div>}
       {matches.map((m) => {
         const a = tById[m.teamA], b = tById[m.teamB];
-        const lockAt = new Date(m.kickoff).getTime() - 5 * 60000;
+        const lockAt = new Date(m.kickoff).getTime() - 7200000; // locks 2 hours before kickoff
         const locked = now >= lockAt || m.status === "finished" || m.status === "void";
         const myPick = me ? game.picks[m.id]?.[me.id] : null;
         const res = matchResult(m);
@@ -615,7 +620,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
             </div>
             <div className="face">
               <div className="team"><span className="fl">{a?.flag}</span><span className="nm">{a?.name}</span></div>
-              {m.status === "finished" ? <div className="score">{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
+              {(m.status === "finished" || (isLive && m.scoreA != null && m.scoreB != null)) ? <div className="score">{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
               <div className="team"><span className="fl">{b?.flag}</span><span className="nm">{b?.name}</span></div>
             </div>
             <div className="pickrow">
@@ -650,7 +655,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
           </div>
         );
       })}
-      <div className="note">All kickoff times are shown in your own timezone, automatically. Scoring — Group 3 (+2 scoreline) · R32/R16 5 (+3) · QF 8 (+4) · SF 12 (+5) · Final 15 (+5). Picks lock 5 minutes before kickoff. Miss the window and it's 0 — no catch-up.</div>
+      <div className="note">All kickoff times are shown in your own timezone, automatically. Scoring — Group 3 (+2 scoreline) · R32/R16 5 (+3) · QF 8 (+4) · SF 12 (+5) · Final 15 (+5). Picks lock 2 hours before kickoff. Miss the window and it's 0 — no catch-up.</div>
     </div>
   );
 }
@@ -1120,7 +1125,7 @@ export default function App() {
     const key = gameRef.current?.config?.apiKey;
     if (!key) return;
     const now = Date.now();
-    if (!force && now - lastFetchRef.current < 300000) return; // throttle 5 min (free-tier friendly)
+    if (!force && now - lastFetchRef.current < 60000) return; // refresh at most once a minute (free tier allows 10/min)
     lastFetchRef.current = now;
     setFxStatus({ loading: true, error: "" });
     const res = await fetchFixtureData(key);
@@ -1135,6 +1140,13 @@ export default function App() {
   // fetch on load and whenever the API key first appears
   useEffect(() => { if (game?.config?.apiKey) pullFixtures(false); }, [game?.config?.apiKey, pullFixtures]);
 
+  // keep live scores fresh: poll every ~minute while watching Home or Picks
+  useEffect(() => {
+    if (tab !== "home" && tab !== "picks") return;
+    const t = setInterval(() => pullFixtures(false), 65000);
+    return () => clearInterval(t);
+  }, [tab, pullFixtures]);
+
   const fireConfetti = () => { setBurst(false); requestAnimationFrame(() => setBurst(true)); setTimeout(() => setBurst(false), 2600); };
 
   const errBanner = pageErrors.length > 0 && (
@@ -1144,7 +1156,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v7</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v9</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1160,7 +1172,7 @@ export default function App() {
       <Confetti burst={burst} />
       <nav className="nav">
         <span style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v7</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v9</span></div>
         <span className="pot-badge">💰 {money(game.config.currency, pot)}</span>
         <select className="who" value={meId} onChange={(e) => setMeId(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>

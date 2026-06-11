@@ -11,9 +11,8 @@ export async function GET(request) {
     return Response.json({ error: "no-key" }, { status: 400 });
   }
   try {
-    const today = new Date().toISOString().slice(0, 10);
     const r = await fetch(
-      `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${today}&dateTo=${today}`,
+      `https://api.football-data.org/v4/competitions/WC/matches`,
       { headers: { "X-Auth-Token": key }, cache: "no-store" }
     );
     if (!r.ok) {
