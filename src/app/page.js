@@ -14,10 +14,18 @@ import { createClient } from "@supabase/supabase-js";
 const STORE_KEY = "wc26-league-v1";
 
 // Supabase: keys come from Vercel environment variables.
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Guarded so a bad/missing config shows an on-screen error instead of
+// silently killing the whole page.
+let supabase = null;
+let supabaseInitError = "";
+try {
+  supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+} catch (e) {
+  supabaseInitError = "Database connection failed: " + (e?.message || "check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel.");
+}
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap');
@@ -275,6 +283,7 @@ function enqueueWrite(job) {
 // Strict load: returns null on failure so callers can abort instead of
 // accidentally writing an empty league over the real one.
 async function loadGameStrict() {
+  if (!supabase) return null;
   try {
     const { data, error } = await supabase
       .from("leagues").select("data").eq("id", STORE_KEY).maybeSingle();
@@ -285,6 +294,7 @@ async function loadGameStrict() {
   } catch (e) { return null; }
 }
 async function persist(game) {
+  if (!supabase) return false;
   try {
     const { error } = await supabase
       .from("leagues").upsert({ id: STORE_KEY, data: game });
@@ -1055,7 +1065,17 @@ export default function App() {
   const [meId, setMeId] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [burst, setBurst] = useState(false);
+  const [pageErrors, setPageErrors] = useState(supabaseInitError ? [supabaseInitError] : []);
   const [fxStatus, setFxStatus] = useState({ loading: false, error: "" });
+
+  // On-screen error reporter: any JS error shows in a red banner so it can
+  // be read and reported without opening developer tools.
+  useEffect(() => {
+    const onErr = (e) => setPageErrors((p) => [...p.slice(-4), String(e?.error?.message || e?.message || e?.reason?.message || e?.reason || "Unknown error")]);
+    window.addEventListener("error", onErr);
+    window.addEventListener("unhandledrejection", onErr);
+    return () => { window.removeEventListener("error", onErr); window.removeEventListener("unhandledrejection", onErr); };
+  }, []);
   const lastFetchRef = useRef(0);
   const gameRef = useRef(null);
   gameRef.current = game;
@@ -1103,7 +1123,14 @@ export default function App() {
 
   const fireConfetti = () => { setBurst(false); requestAnimationFrame(() => setBurst(true)); setTimeout(() => setBurst(false), 2600); };
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style><div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE…</div></div>;
+  const errBanner = pageErrors.length > 0 && (
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 999, background: "#7a1220", color: "#fff", padding: "8px 14px", fontSize: 13, fontFamily: "monospace" }}>
+      <b>⚠ Page error — send this text to fix it:</b>
+      {pageErrors.map((e, i) => <div key={i}>• {e}</div>)}
+    </div>
+  );
+
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE…<div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1115,6 +1142,7 @@ export default function App() {
   return (
     <div className="wc-app">
       <style>{CSS}</style>
+      {errBanner}
       <Confetti burst={burst} />
       <nav className="nav">
         <span style={{ fontSize: 22 }}>🏆</span>
