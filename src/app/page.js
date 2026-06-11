@@ -985,7 +985,10 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
         </div>
         <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
           {game.players.map((p) => (
-            <span key={p.id} className="chip">{p.avatar} {p.name}
+            <span key={p.id} className="chip">{p.avatar} {p.name}{p.pin ? " 🔒" : ""}
+              {p.pin && <button className="btn btn-ghost" style={{ padding: "0 6px", fontSize: 11 }}
+                title="Reset PIN"
+                onClick={() => { if (confirm(`Reset ${p.name}'s PIN? They'll set a new one next time they select their name.`)) mutate((g) => { const gp = g.players.find((x) => x.id === p.id); if (gp) delete gp.pin; }); }}>PIN↺</button>}
               <button className="btn btn-danger" style={{ padding: "0 6px", fontSize: 11 }}
                 onClick={() => { if (confirm(`Remove ${p.name}?`)) mutate((g) => { g.players = g.players.filter((x) => x.id !== p.id); delete g.underdog[p.id]; delete g.final8[p.id]; }); }}>×</button>
             </span>
@@ -1165,10 +1168,29 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v10</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v11</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
+
+  // PIN-protected player selection: first pick sets a 4-digit PIN,
+  // after that switching to a player requires their PIN.
+  const choosePlayer = (id) => {
+    if (!id) { setMeId(""); return; }
+    const p = game.players.find((x) => x.id === id);
+    if (!p) return;
+    if (!p.pin) {
+      const pin = window.prompt(`First time as ${p.name}! Set a 4-digit PIN (you'll need it to make picks as ${p.name}):`);
+      if (!pin || !/^\d{4}$/.test(pin.trim())) { alert("PIN must be exactly 4 digits — select your name and try again."); return; }
+      mutate((g) => { const gp = g.players.find((x) => x.id === id); if (gp && !gp.pin) gp.pin = pin.trim(); });
+      setMeId(id);
+    } else {
+      const pin = window.prompt(`Enter ${p.name}'s 4-digit PIN:`);
+      if ((pin || "").trim() !== p.pin) { alert("Wrong PIN."); return; }
+      setMeId(id);
+    }
+  };
+
   const TABS = [
     ["home", "🏟️", "Home"], ["picks", "✅", "Picks"], ["underdog", "🐉", "Underdog"],
     ["final8", "🎯", "Final 8"], ["board", "🏆", "Table"], ["prizes", "💰", "Prizes"], ["admin", "🛠️", "Admin"],
@@ -1181,11 +1203,11 @@ export default function App() {
       <Confetti burst={burst} />
       <nav className="nav">
         <span style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v10</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v11</span></div>
         <span className="pot-badge">💰 {money(game.config.currency, pot)}</span>
-        <select className="who" value={meId} onChange={(e) => setMeId(e.target.value)} aria-label="select your player">
+        <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
-          {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}</option>)}
+          {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
         </select>
       </nav>
 
