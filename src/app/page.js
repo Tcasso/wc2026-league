@@ -1062,8 +1062,18 @@ function AdminResultRow({ m, a, b, onSave, onVoid, onDelete }) {
 export default function App() {
   const [game, setGame] = useState(null);
   const [tab, setTab] = useState("home");
-  const [meId, setMeId] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [meId, setMeIdRaw] = useState("");
+  const [isAdmin, setIsAdminRaw] = useState(false);
+  // Phones constantly discard and reload background tabs, which wipes
+  // in-memory state — so identity and admin unlock are kept on-device.
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("wc26-meId"); if (v) setMeIdRaw(v);
+      if (sessionStorage.getItem("wc26-admin") === "1") setIsAdminRaw(true);
+    } catch (e) {}
+  }, []);
+  const setMeId = (v) => { setMeIdRaw(v); try { localStorage.setItem("wc26-meId", v); } catch (e) {} };
+  const setIsAdmin = (v) => { setIsAdminRaw(v); try { sessionStorage.setItem("wc26-admin", v ? "1" : "0"); } catch (e) {} };
   const [burst, setBurst] = useState(false);
   const [pageErrors, setPageErrors] = useState(supabaseInitError ? [supabaseInitError] : []);
   const [fxStatus, setFxStatus] = useState({ loading: false, error: "" });
@@ -1130,7 +1140,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE…<div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v6</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1146,7 +1156,7 @@ export default function App() {
       <Confetti burst={burst} />
       <nav className="nav">
         <span style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v6</span></div>
         <span className="pot-badge">💰 {money(game.config.currency, pot)}</span>
         <select className="who" value={meId} onChange={(e) => setMeId(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
