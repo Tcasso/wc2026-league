@@ -247,6 +247,11 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .payout-pts{font-family:'Bebas Neue';font-size:88px;line-height:1.05;color:var(--gold-bright);animation:goldPulse 1.4s ease-in-out infinite;}
 .payout-win{font-size:14px;color:#bdf3d2;padding:3px 0;}
 .payout-tap{margin-top:20px;font-size:11px;color:var(--muted);letter-spacing:.25em;text-transform:uppercase;}
+.pickflash{position:fixed;inset:0;z-index:280;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.pickflash .pf-inner{text-align:center;animation:pfPop 1.15s cubic-bezier(.2,1.5,.4,1) forwards;}
+.pickflash .pf-flag{font-size:64px;line-height:1;display:block;}
+.pickflash .pf-text{font-family:'Bebas Neue';font-size:clamp(40px,9vw,72px);letter-spacing:.08em;color:var(--gold-bright);text-shadow:0 0 30px rgba(240,201,58,.85),0 4px 18px rgba(0,0,0,.7);}
+@keyframes pfPop{0%{opacity:0;transform:scale(.5)}14%{opacity:1;transform:scale(1.08)}24%{transform:scale(1)}78%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.06) translateY(-12px)}}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
 `;
 
@@ -312,6 +317,36 @@ const WC_FIXTURES = [
   ["PAN","ENG","2026-06-27T21:00Z"],["CRO","GHA","2026-06-27T21:00Z"],["COL","POR","2026-06-27T23:30Z"],["COD","UZB","2026-06-27T23:30Z"],
   ["ALG","AUT","2026-06-28T02:00Z"],["JOR","ARG","2026-06-28T02:00Z"],
 ];
+
+// Flag colours per country — used for pick-celebration confetti
+const COUNTRY_COLORS = {
+  "Argentina":["#75AADB","#ffffff","#F6B40E"],"France":["#0055A4","#ffffff","#EF4135"],
+  "Spain":["#AA151B","#F1BF00"],"England":["#ffffff","#CE1124"],"Brazil":["#009C3B","#FFDF00","#002776"],
+  "Portugal":["#046A38","#DA291C","#FFE900"],"Netherlands":["#FF7F00","#21468B","#ffffff"],
+  "Belgium":["#2D2926","#FFCD00","#C8102E"],"Germany":["#000000","#DD0000","#FFCE00"],
+  "Croatia":["#FF0000","#ffffff","#171796"],"Italy":["#008C45","#ffffff","#CD212A"],
+  "Morocco":["#C1272D","#006233"],"USA":["#B22234","#ffffff","#3C3B6E"],"United States":["#B22234","#ffffff","#3C3B6E"],
+  "Mexico":["#006847","#ffffff","#CE1126"],"Canada":["#FF0000","#ffffff"],"Japan":["#ffffff","#BC002D"],
+  "South Korea":["#ffffff","#CD2E3A","#0047A0"],"Korea Republic":["#ffffff","#CD2E3A","#0047A0"],
+  "Australia":["#00843D","#FFCD00"],"Senegal":["#00853F","#FDEF42","#E31B23"],
+  "Ecuador":["#FFDD00","#034EA2","#ED1C24"],"Uruguay":["#7BAFD4","#ffffff","#FCD116"],
+  "Colombia":["#FCD116","#003893","#CE1126"],"Switzerland":["#DA291C","#ffffff"],
+  "Denmark":["#C8102E","#ffffff"],"Poland":["#ffffff","#DC143C"],"Serbia":["#C6363C","#0C4076","#ffffff"],
+  "Ghana":["#CE1126","#FCD116","#006B3F"],"Cameroon":["#007A5E","#CE1126","#FCD116"],
+  "Tunisia":["#E70013","#ffffff"],"Algeria":["#006233","#ffffff","#D21034"],
+  "Egypt":["#CE1126","#ffffff","#000000"],"Nigeria":["#008751","#ffffff"],
+  "Saudi Arabia":["#006C35","#ffffff"],"Qatar":["#8A1538","#ffffff"],
+  "Iran":["#239F40","#ffffff","#DA0000"],"IR Iran":["#239F40","#ffffff","#DA0000"],
+  "Norway":["#BA0C2F","#ffffff","#00205B"],"Sweden":["#006AA7","#FECC02"],
+  "Austria":["#ED2939","#ffffff"],"Ukraine":["#0057B7","#FFD700"],"Turkey":["#E30A17","#ffffff"],
+  "Scotland":["#0065BF","#ffffff"],"Wales":["#C8102E","#00B140","#ffffff"],
+  "Paraguay":["#D52B1E","#ffffff","#0038A8"],"Peru":["#D91023","#ffffff"],
+  "Costa Rica":["#CE1126","#ffffff","#002B7F"],"Panama":["#DA121A","#ffffff","#072357"],
+  "Jamaica":["#009B3A","#FED100","#000000"],"New Zealand":["#000000","#ffffff"],
+  "Uzbekistan":["#1EB53A","#0099B5","#ffffff"],"Jordan":["#007A3D","#ffffff","#CE1126","#000000"],
+  "Cape Verde":["#003893","#ffffff","#F7D116","#CF2027"],"Ivory Coast":["#FF8200","#ffffff","#009A44"],
+};
+const HYPE = ["LET'S GO!", "HERE WE GO!", "LOCKED IN!", "BET PLACED!", "STAMPED!"];
 
 const DEFAULT_GAME = {
   config: { groupName: "PRIVATE LEAGUE", buyIn: 20, adminPass: "wc2026", final8Open: false, currency: "S$" },
@@ -571,12 +606,12 @@ function Countdown({ to }) {
   const pad = (n) => String(n).padStart(2, "0");
   return <span>Picks lock in {h > 0 ? `${h}:` : ""}{pad(m)}:{pad(s)} — don't sleep.</span>;
 }
-function Confetti({ burst }) {
+function Confetti({ burst, colors }) {
   if (!burst) return null;
-  const colors = ["#f0c93a", "#c9a84c", "#4fc3f7", "#2d6e47", "#ffffff", "#e63946"];
+  if (!colors || !colors.length) colors = ["#f0c93a", "#c9a84c", "#4fc3f7", "#2d6e47", "#ffffff", "#e63946"];
   return (
     <div className="confetti" aria-hidden>
-      {Array.from({ length: 36 }).map((_, i) => (
+      {Array.from({ length: 52 }).map((_, i) => (
         <span key={i} className="cpiece" style={{
           left: `${Math.random() * 100}%`, background: colors[i % colors.length],
           animationDelay: `${Math.random() * 0.6}s`, transform: `rotate(${Math.random() * 360}deg)`,
@@ -693,7 +728,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
   );
 }
 
-function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
+function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate }) {
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
   const [stageTab, setStageTab] = useState("GROUP");
   useTick(true);
@@ -702,7 +737,10 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
   const setPick = (m, patch) => {
-    try { navigator.vibrate && navigator.vibrate(12); } catch (e) {}
+    if (patch.pred && onPickCelebrate) {
+      const t = patch.pred === "A" ? tById[m.teamA] : patch.pred === "B" ? tById[m.teamB] : null;
+      onPickCelebrate(t);
+    }
     return mutate((g) => {
     // hard guard: no pick changes within 1 min of kickoff, even if the UI lagged
     if (Date.now() >= new Date(m.kickoff).getTime() - 7200000) return;
@@ -1268,7 +1306,21 @@ export default function App() {
     return () => clearInterval(t);
   }, [tab, pullFixtures]);
 
-  const fireConfetti = () => { setBurst(false); requestAnimationFrame(() => setBurst(true)); setTimeout(() => setBurst(false), 2600); };
+  const [burstColors, setBurstColors] = useState(null);
+  const [pickFlash, setPickFlash] = useState(null);
+  const fireConfetti = (colors) => { setBurstColors(colors || null); setBurst(false); requestAnimationFrame(() => setBurst(true)); setTimeout(() => setBurst(false), 2600); };
+
+  // THE PICK RUSH: full-screen "LET'S GO" + confetti in the country's colours
+  const flashTimer = useRef(null);
+  const celebratePick = (team) => {
+    const phrase = HYPE[Math.floor(Math.random() * HYPE.length)];
+    const colors = team ? (COUNTRY_COLORS[team.name] || ["#f0c93a", "#ffffff"]) : ["#f0c93a", "#ffffff", "#8aaa96"];
+    setPickFlash({ flag: team ? team.flag : "🤝", text: team ? `${team.name.toUpperCase()} — ${phrase}` : `DRAW — ${phrase}` });
+    fireConfetti(colors);
+    try { navigator.vibrate && navigator.vibrate([18, 30, 40]); } catch (e) {}
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setPickFlash(null), 1150);
+  };
 
   // THE PAYOUT: when new results have landed since you last looked and your
   // picks came in — take over the screen: points, the wins, confetti, haptics.
@@ -1313,7 +1365,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v16</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v17</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1355,7 +1407,15 @@ export default function App() {
           </div>
         </div>
       )}
-      <Confetti burst={burst} />
+      <Confetti burst={burst} colors={burstColors} />
+      {pickFlash && (
+        <div className="pickflash" aria-hidden>
+          <div className="pf-inner">
+            <span className="pf-flag">{pickFlash.flag}</span>
+            <span className="pf-text">{pickFlash.text}</span>
+          </div>
+        </div>
+      )}
       <div className="beams" aria-hidden />
       <div className="particles" aria-hidden>
         {particles.map((pt, i) => <i key={i} style={{ left: `${pt.left}%`, width: pt.size, height: pt.size, animationDuration: `${pt.dur}s`, animationDelay: `${pt.delay}s` }} />)}
@@ -1363,7 +1423,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v16</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v17</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
@@ -1374,7 +1434,7 @@ export default function App() {
       </div>
 
       {tab === "home" && <HomePage game={game} me={me} go={setTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
-      {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
+      {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} />}
       {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
       {tab === "final8" && <Final8Page game={game} me={me} mutate={mutate} />}
       {tab === "board" && <LeaderboardPage game={game} />}
