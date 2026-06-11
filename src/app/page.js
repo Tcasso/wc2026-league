@@ -261,22 +261,36 @@ const fmtTime = (iso) => new Date(iso).toLocaleString(undefined, { weekday: "sho
 const money = (cur, n) => `${cur}${(Math.round(n * 100) / 100).toFixed(2)}`;
 const stageTag = (m, tById) => m.stage === "GROUP" && tById?.[m.teamA]?.group ? `Group ${tById[m.teamA].group}` : STAGE_LABEL[m.stage];
 
-/* ── storage (Supabase: one shared row holds the whole league) ── */
-async function loadGame() {
+/* ── storage (Supabase: one shared row holds the whole league) ──
+   All writes are serialized through a queue so they can never
+   overwrite each other. A failed read NEVER results in a write
+   (that's what was wiping data). */
+let writeChain = Promise.resolve();
+let lastWriteAt = 0;
+function enqueueWrite(job) {
+  const p = writeChain.then(job, job);
+  writeChain = p.catch(() => {});
+  return p;
+}
+// Strict load: returns null on failure so callers can abort instead of
+// accidentally writing an empty league over the real one.
+async function loadGameStrict() {
   try {
     const { data, error } = await supabase
       .from("leagues").select("data").eq("id", STORE_KEY).maybeSingle();
-    if (error) throw error;
+    if (error) return null;
     if (data && data.data) return { ...DEFAULT_GAME, ...data.data };
-  } catch (e) { console.error("Load failed", e); }
-  return JSON.parse(JSON.stringify(DEFAULT_GAME));
+    // Row genuinely doesn't exist yet (fresh league) — safe to start clean.
+    return JSON.parse(JSON.stringify(DEFAULT_GAME));
+  } catch (e) { return null; }
 }
 async function persist(game) {
   try {
     const { error } = await supabase
       .from("leagues").upsert({ id: STORE_KEY, data: game });
     if (error) throw error;
-  } catch (e) { console.error("Save failed", e); }
+    return true;
+  } catch (e) { console.error("Save failed", e); return false; }
 }
 
 /* ── live fixtures (football-data.org, free tier) ────────────── */
@@ -301,9 +315,9 @@ function apiStage(s) {
   if (s.includes("FINAL")) return "FINAL";
   return "GROUP";
 }
-// Pulls today's World Cup fixtures via our own server route (avoids CORS,
-// keeps the key server-side, and never throws back into the page).
-async function fetchFixtures(apiKey) {
+// Pure fetch: gets today's fixtures via our server route. No writes here —
+// merging into the league happens through the same safe queue as all edits.
+async function fetchFixtureData(apiKey) {
   if (!apiKey) return { ok: false, error: "no-key" };
   try {
     const r = await fetch(`/api/fixtures?key=${encodeURIComponent(apiKey)}`);
@@ -311,35 +325,35 @@ async function fetchFixtures(apiKey) {
     if (!r.ok || payload.error) {
       return { ok: false, error: payload.error || `API error (${r.status}).` };
     }
-    const apiMatches = payload.matches || [];
-    const g = await loadGame();
-    for (const am of apiMatches) {
-      const nameA = am.homeTeam?.name || "TBA", nameB = am.awayTeam?.name || "TBA";
-      let tA = g.teams.find((t) => t.name === nameA);
-      if (!tA) { tA = { id: uid(), name: nameA, flag: flagFor(nameA), eligible: true, furthest: "none", wonAll3: false }; g.teams.push(tA); }
-      let tB = g.teams.find((t) => t.name === nameB);
-      if (!tB) { tB = { id: uid(), name: nameB, flag: flagFor(nameB), eligible: true, furthest: "none", wonAll3: false }; g.teams.push(tB); }
-      const stage = apiStage(am.stage);
-      const status = am.status === "FINISHED" ? "finished"
-        : (am.status === "IN_PLAY" || am.status === "PAUSED") ? "live" : "scheduled";
-      const existing = g.matches.find((x) => x.apiId === String(am.id));
-      if (existing) {
-        existing.status = status === "live" ? "scheduled" : status;
-        existing.live = status === "live";
-        if (status === "finished" && am.score?.fullTime) {
-          if (am.score.fullTime.home != null) existing.scoreA = am.score.fullTime.home;
-          if (am.score.fullTime.away != null) existing.scoreB = am.score.fullTime.away;
-        }
-      } else {
-        g.matches.push({ id: uid(), apiId: String(am.id), teamA: tA.id, teamB: tB.id,
-          kickoff: am.utcDate, stage, status: status === "live" ? "scheduled" : status, live: status === "live",
-          scoreA: am.score?.fullTime?.home ?? null, scoreB: am.score?.fullTime?.away ?? null });
-      }
-    }
-    await persist(g);
-    return { ok: true, error: "" };
+    return { ok: true, matches: payload.matches || [], error: "" };
   } catch (e) {
     return { ok: false, error: "Couldn't reach the fixtures service. Add matches manually for now." };
+  }
+}
+// Merges fetched fixtures into the league object (mutates g in place).
+function mergeFixtures(g, apiMatches) {
+  for (const am of apiMatches) {
+    const nameA = am.homeTeam?.name || "TBA", nameB = am.awayTeam?.name || "TBA";
+    let tA = g.teams.find((t) => t.name === nameA);
+    if (!tA) { tA = { id: uid(), name: nameA, flag: flagFor(nameA), eligible: true, furthest: "none", wonAll3: false }; g.teams.push(tA); }
+    let tB = g.teams.find((t) => t.name === nameB);
+    if (!tB) { tB = { id: uid(), name: nameB, flag: flagFor(nameB), eligible: true, furthest: "none", wonAll3: false }; g.teams.push(tB); }
+    const stage = apiStage(am.stage);
+    const status = am.status === "FINISHED" ? "finished"
+      : (am.status === "IN_PLAY" || am.status === "PAUSED") ? "live" : "scheduled";
+    const existing = g.matches.find((x) => x.apiId === String(am.id));
+    if (existing) {
+      existing.status = status === "live" ? "scheduled" : status;
+      existing.live = status === "live";
+      if (status === "finished" && am.score?.fullTime) {
+        if (am.score.fullTime.home != null) existing.scoreA = am.score.fullTime.home;
+        if (am.score.fullTime.away != null) existing.scoreB = am.score.fullTime.away;
+      }
+    } else {
+      g.matches.push({ id: uid(), apiId: String(am.id), teamA: tA.id, teamB: tB.id,
+        kickoff: am.utcDate, stage, status: status === "live" ? "scheduled" : status, live: status === "live",
+        scoreA: am.score?.fullTime?.home ?? null, scoreB: am.score?.fullTime?.away ?? null });
+    }
   }
 }
 
@@ -1046,8 +1060,27 @@ export default function App() {
   const gameRef = useRef(null);
   gameRef.current = game;
 
-  const refresh = useCallback(async () => { const g = await loadGame(); setGame(g); }, []);
+  // Background sync: reads the shared league, but never right after a local
+  // write (so it can't clobber what you just changed with a stale read).
+  const refresh = useCallback(async () => {
+    if (Date.now() - lastWriteAt < 6000) return;
+    const g = await loadGameStrict();
+    if (g) setGame(g);
+  }, []);
   useEffect(() => { refresh(); const t = setInterval(refresh, 20000); return () => clearInterval(t); }, [refresh]);
+
+  // All writes go through one queue: fresh read → change → write. A failed
+  // read aborts (never writes), so data can't be wiped by a network blip.
+  const mutate = useCallback((fn) => enqueueWrite(async () => {
+    const g = await loadGameStrict();
+    if (!g) { alert("Couldn't reach the database — that change wasn't saved. Check your connection and try again."); return; }
+    fn(g);
+    lastWriteAt = Date.now();
+    setGame({ ...g });
+    const ok = await persist(g);
+    lastWriteAt = Date.now();
+    if (!ok) alert("Save failed — please try that again.");
+  }), []);
 
   const pullFixtures = useCallback(async (force = false) => {
     const key = gameRef.current?.config?.apiKey;
@@ -1056,21 +1089,17 @@ export default function App() {
     if (!force && now - lastFetchRef.current < 300000) return; // throttle 5 min (free-tier friendly)
     lastFetchRef.current = now;
     setFxStatus({ loading: true, error: "" });
-    const res = await fetchFixtures(key);
-    setFxStatus({ loading: false, error: res.ok ? "" : (res.error === "no-key" ? "" : res.error) });
-    if (res.ok) { const g = await loadGame(); setGame(g); }
-  }, []);
+    const res = await fetchFixtureData(key);
+    if (!res.ok) {
+      setFxStatus({ loading: false, error: res.error === "no-key" ? "" : res.error });
+      return;
+    }
+    if (res.matches.length > 0) await mutate((g) => mergeFixtures(g, res.matches));
+    setFxStatus({ loading: false, error: res.matches.length === 0 ? "No World Cup fixtures today (or the API doesn't have them yet)." : "" });
+  }, [mutate]);
 
   // fetch on load and whenever the API key first appears
   useEffect(() => { if (game?.config?.apiKey) pullFixtures(false); }, [game?.config?.apiKey, pullFixtures]);
-
-  const mutate = useCallback(async (fn) => {
-    // read-fresh → mutate → write, to reduce clobbering between players
-    const g = await loadGame();
-    fn(g);
-    setGame({ ...g });
-    await persist(g);
-  }, []);
 
   const fireConfetti = () => { setBurst(false); requestAnimationFrame(() => setBurst(true)); setTimeout(() => setBurst(false), 2600); };
 
