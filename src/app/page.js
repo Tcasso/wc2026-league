@@ -52,7 +52,7 @@ const CSS = `
 .gold{color:var(--gold-bright);}
 
 /* navbar */
-.nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;
+.nav{display:flex;align-items:center;gap:12px;
   padding:10px 16px;background:rgba(7,13,10,.92);backdrop-filter:blur(8px);
   border-bottom:1px solid rgba(201,168,76,.25);}
 .nav-title{font-size:22px;line-height:1;color:var(--white);}
@@ -210,6 +210,29 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .live .dot{box-shadow:0 0 12px rgba(230,57,70,.95);}
 .toast{position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:200;background:linear-gradient(135deg,#2a2008,#1c3427);border:1px solid var(--gold-bright);color:var(--gold-bright);font-family:'Bebas Neue';font-size:22px;letter-spacing:.08em;padding:12px 28px;border-radius:12px;box-shadow:0 0 32px rgba(240,201,58,.55);animation:toastIn .4s ease, goldPulse 1.5s ease-in-out infinite;}
 @keyframes toastIn{0%{opacity:0;transform:translateX(-50%) translateY(-18px) scale(.9)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+/* ── stadium atmosphere (always-on) ── */
+.topwrap{position:sticky;top:0;z-index:50;}
+.ticker{background:#050a06;border-bottom:1px solid rgba(201,168,76,.35);overflow:hidden;white-space:nowrap;}
+.ticker-track{display:inline-flex;animation:tickerScroll 35s linear infinite;}
+.ticker-track span{font-family:'Barlow Condensed';letter-spacing:.16em;font-size:13px;color:var(--gold-bright);padding:5px 0;text-transform:uppercase;}
+@keyframes tickerScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.beams{position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 55% 38% at 18% 0%,rgba(240,201,58,.13),transparent 60%),radial-gradient(ellipse 55% 38% at 82% 0%,rgba(79,195,247,.07),transparent 60%);animation:beamPan 14s ease-in-out infinite alternate;}
+@keyframes beamPan{0%{transform:translateX(-4%) }100%{transform:translateX(4%)}}
+.particles{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+.particles i{position:absolute;bottom:-8px;border-radius:50%;background:var(--gold-bright);opacity:0;animation:floatUp linear infinite;}
+@keyframes floatUp{0%{transform:translateY(0) translateX(0);opacity:0}8%{opacity:.65}85%{opacity:.3}100%{transform:translateY(-105vh) translateX(24px);opacity:0}}
+.page{position:relative;z-index:1;animation:pageIn .35s ease;}
+@keyframes pageIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
+.hero h1{background:linear-gradient(100deg,#fff 25%,var(--gold-bright) 50%,#fff 75%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;animation:titleSheen 4.5s linear infinite;}
+@keyframes titleSheen{0%{background-position:200% center}100%{background-position:0% center}}
+.live-card{border-color:rgba(230,57,70,.55) !important;animation:liveGlow 1.6s ease-in-out infinite;}
+@keyframes liveGlow{0%,100%{box-shadow:0 0 6px rgba(230,57,70,.25)}50%{box-shadow:0 0 22px rgba(230,57,70,.6)}}
+.lb-row{animation:rowIn .45s ease both;}
+@keyframes rowIn{0%{opacity:0;transform:translateX(-14px)}100%{opacity:1;transform:translateX(0)}}
+.tab.on .ic{display:inline-block;animation:icBounce .5s ease;}
+@keyframes icBounce{0%{transform:translateY(0)}40%{transform:translateY(-6px)}70%{transform:translateY(2px)}100%{transform:translateY(0)}}
+.nav-trophy{display:inline-block;animation:trophySway 3.5s ease-in-out infinite;}
+@keyframes trophySway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
 `;
 
@@ -498,6 +521,34 @@ function streakFor(game, playerId) {
   }
   return s;
 }
+// Stadium LED ticker — endless scroll of pot, leaders, fixtures, streaks
+function Ticker({ game }) {
+  const rows = computeStandings(game).sort((a, b) => b.total - a.total);
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const items = [];
+  const pot = game.config.buyIn * game.players.length;
+  items.push(`💰 POT ${money(game.config.currency, pot)}`);
+  if (rows[0] && rows[0].total > 0) items.push(`🥇 ${rows[0].p.name} leads on ${rows[0].total} pts`);
+  const hot = rows.map((r) => ({ n: r.p.name, s: streakFor(game, r.p.id) })).sort((a, b) => b.s - a.s)[0];
+  if (hot && hot.s >= 2) items.push(`🔥 ${hot.n} is on a ${hot.s}-pick heater`);
+  const today = new Date().toDateString();
+  for (const m of game.matches.filter((x) => x.status !== "void" && new Date(x.kickoff).toDateString() === today)
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff))) {
+    const a = tById[m.teamA], b = tById[m.teamB];
+    if (!a || !b) continue;
+    if (m.live && m.scoreA != null) items.push(`🔴 LIVE ${a.name} ${m.scoreA}–${m.scoreB} ${b.name}`);
+    else if (m.status === "finished") items.push(`🏁 FT ${a.name} ${m.scoreA}–${m.scoreB} ${b.name}`);
+    else items.push(`⚽ ${a.name} v ${b.name} ${new Date(m.kickoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`);
+  }
+  if (rows.length > 1 && rows[rows.length - 1].total > 0) items.push(`🪦 ${rows[rows.length - 1].p.name} holds the wooden spoon`);
+  if (items.length < 3) items.push("World Cup 2026 — get your picks in before they lock");
+  const line = items.join("   ●   ");
+  return (
+    <div className="ticker" aria-hidden>
+      <div className="ticker-track"><span>{line}   ●   </span><span>{line}   ●   </span></div>
+    </div>
+  );
+}
 function Countdown({ to }) {
   useTick(true);
   const ms = new Date(to).getTime() - Date.now();
@@ -575,7 +626,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
             const ko = new Date(m.kickoff).getTime();
             const isLive = m.live || (now >= ko && now < ko + 2.2 * 3600000);
             return (
-              <div className="match" key={m.id} style={{ marginBottom: 0 }}>
+              <div className={`match ${isLive ? "live-card" : ""}`} key={m.id} style={{ marginBottom: 0 }}>
                 <div className="meta"><span>{stageTag(m, tById)}</span>
                   {isLive ? <span className="live"><span className="dot" />LIVE</span> : <span>{fmtTime(m.kickoff)}</span>}
                 </div>
@@ -870,7 +921,7 @@ function LeaderboardPage({ game }) {
       <div className="lb-head"><span>#</span><span>Player</span><span className="num">Daily</span><span className="num">Udog</span><span className="num">F8</span><span className="num">Total</span></div>
       {rows.map((r, i) => (
         <div key={r.p.id}>
-          <div className={`lb-row ${i === 0 && tab === "overall" ? "top1" : ""}`} onClick={() => setOpenRow(openRow === r.p.id ? null : r.p.id)}>
+          <div className={`lb-row ${i === 0 && tab === "overall" ? "top1" : ""}`} style={{ animationDelay: `${i * 60}ms` }} onClick={() => setOpenRow(openRow === r.p.id ? null : r.p.id)}>
             <span className="rank">{i + 1}</span>
             <span>{r.p.avatar} {r.p.name} <span style={{ fontSize: 13 }}>{contention(r)}</span>{streakFor(game, r.p.id) >= 2 && <span style={{ fontSize: 12 }}> 🔥{streakFor(game, r.p.id)}</span>}</span>
             <span className="num">{r.daily}</span>
@@ -1225,10 +1276,14 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v13</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v14</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
+  const particles = useMemo(() => Array.from({ length: 18 }, () => ({
+    left: Math.random() * 100, dur: 8 + Math.random() * 10,
+    delay: Math.random() * 10, size: 2 + Math.random() * 3,
+  })), []);
 
   // PIN-protected player selection: first pick sets a 4-digit PIN,
   // after that switching to a player requires their PIN.
@@ -1259,15 +1314,22 @@ export default function App() {
       {errBanner}
       {toast && <div className="toast">{toast}</div>}
       <Confetti burst={burst} />
+      <div className="beams" aria-hidden />
+      <div className="particles" aria-hidden>
+        {particles.map((pt, i) => <i key={i} style={{ left: `${pt.left}%`, width: pt.size, height: pt.size, animationDuration: `${pt.dur}s`, animationDelay: `${pt.delay}s` }} />)}
+      </div>
+      <div className="topwrap">
       <nav className="nav">
-        <span style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v13</span></div>
+        <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v14</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
           {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
         </select>
       </nav>
+      <Ticker game={game} />
+      </div>
 
       {tab === "home" && <HomePage game={game} me={me} go={setTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
       {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
