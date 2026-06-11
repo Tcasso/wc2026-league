@@ -201,7 +201,11 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 @keyframes btnGlow{0%,100%{box-shadow:0 0 8px rgba(240,201,58,.3)}50%{box-shadow:0 0 20px rgba(240,201,58,.7)}}
 .btn-gold{animation:btnGlow 2.4s ease-in-out infinite;}
 .pickbtn:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 4px 16px rgba(240,201,58,.25);}
-.pickbtn.sel{animation:selPop .3s ease;}
+.pickbtn{position:relative;}
+.pickbtn.sel{animation:stamp .28s cubic-bezier(.2,1.6,.4,1);}
+@keyframes stamp{0%{transform:scale(1.18)}100%{transform:scale(1)}}
+.pickbtn.sel::after{content:"";position:absolute;inset:-3px;border:2px solid var(--gold-bright);border-radius:11px;animation:ringOut .55s ease forwards;pointer-events:none;}
+@keyframes ringOut{0%{opacity:.9;transform:scale(.95)}100%{opacity:0;transform:scale(1.28)}}
 @keyframes selPop{0%{transform:scale(.9)}60%{transform:scale(1.07)}100%{transform:scale(1)}}
 .pickbtn.win{animation:winFlash 1.4s ease;}
 @keyframes winFlash{0%{box-shadow:0 0 0 rgba(63,174,108,0)}40%{box-shadow:0 0 26px rgba(63,174,108,.95)}100%{box-shadow:0 0 8px rgba(63,174,108,.35)}}
@@ -233,6 +237,16 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 @keyframes icBounce{0%{transform:translateY(0)}40%{transform:translateY(-6px)}70%{transform:translateY(2px)}100%{transform:translateY(0)}}
 .nav-trophy{display:inline-block;animation:trophySway 3.5s ease-in-out infinite;}
 @keyframes trophySway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+.calledit{margin-top:10px;text-align:center;font-family:'Bebas Neue';letter-spacing:.1em;font-size:19px;color:var(--gold-bright);animation:calledIn .6s cubic-bezier(.2,1.4,.4,1), goldPulse 2s ease-in-out infinite;}
+@keyframes calledIn{0%{transform:translateY(10px) scale(.8);opacity:0}100%{transform:none;opacity:1}}
+.payout{position:fixed;inset:0;z-index:300;background:rgba(5,8,6,.93);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
+@keyframes payIn{from{opacity:0}to{opacity:1}}
+.payout-card{text-align:center;padding:32px 40px;animation:cardPop .5s cubic-bezier(.2,1.5,.4,1);}
+@keyframes cardPop{0%{transform:scale(.65);opacity:0}100%{transform:scale(1);opacity:1}}
+.payout-label{font-family:'Barlow Condensed';letter-spacing:.32em;color:var(--muted);font-size:14px;text-transform:uppercase;}
+.payout-pts{font-family:'Bebas Neue';font-size:88px;line-height:1.05;color:var(--gold-bright);animation:goldPulse 1.4s ease-in-out infinite;}
+.payout-win{font-size:14px;color:#bdf3d2;padding:3px 0;}
+.payout-tap{margin-top:20px;font-size:11px;color:var(--muted);letter-spacing:.25em;text-transform:uppercase;}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
 `;
 
@@ -687,13 +701,16 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
   const matches = game.matches.filter((m) => m.stage === stageTab)
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
-  const setPick = (m, patch) => mutate((g) => {
+  const setPick = (m, patch) => {
+    try { navigator.vibrate && navigator.vibrate(12); } catch (e) {}
+    return mutate((g) => {
     // hard guard: no pick changes within 1 min of kickoff, even if the UI lagged
     if (Date.now() >= new Date(m.kickoff).getTime() - 7200000) return;
     if (!g.picks[m.id]) g.picks[m.id] = {};
     const cur = g.picks[m.id][me.id] || { pred: null, sa: "", sb: "", at: Date.now() };
     g.picks[m.id][me.id] = { ...cur, ...patch, at: Date.now() };
   });
+  };
 
   return (
     <div className="page">
@@ -738,6 +755,9 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh }) {
               <button className={btnCls("B")} disabled={locked || !me} onClick={() => setPick(m, { pred: "B" })}>{b?.name} win</button>
             </div>
             {!locked && m.status !== "void" && <div className="lockline"><Countdown to={new Date(lockAt).toISOString()} /></div>}
+            {m.status === "finished" && myPick && myPick.pred === res && (
+              <div className="calledit">✓ CALLED IT · +{pickPoints(m, myPick)} PTS</div>
+            )}
             {locked && m.status !== "void" && (
               <div className="others">
                 {game.players.map((p) => {
@@ -1250,22 +1270,33 @@ export default function App() {
 
   const fireConfetti = () => { setBurst(false); requestAnimationFrame(() => setBurst(true)); setTimeout(() => setBurst(false), 2600); };
 
-  // Dopamine hit: when your total has gone up since you last looked,
-  // celebrate with a toast + confetti.
-  const [toast, setToast] = useState("");
+  // THE PAYOUT: when new results have landed since you last looked and your
+  // picks came in — take over the screen: points, the wins, confetti, haptics.
+  const [payout, setPayout] = useState(null);
   useEffect(() => {
     if (!game || !meId) return;
-    const row = computeStandings(game).find((r) => r.p.id === meId);
-    if (!row) return;
-    const key = "wc26-pts-" + meId;
+    const finished = game.matches.filter((m) => m.status === "finished");
+    const key = "wc26-seen-" + meId;
     try {
-      const prevPts = Number(localStorage.getItem(key));
-      if (Number.isFinite(prevPts) && row.total > prevPts) {
-        setToast(`+${row.total - prevPts} PTS BANKED 💰`);
-        fireConfetti();
-        setTimeout(() => setToast(""), 4200);
+      const raw = localStorage.getItem(key);
+      const seen = raw ? new Set(JSON.parse(raw)) : null;
+      if (seen) {
+        const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+        const wins = []; let pts = 0;
+        for (const m of finished) {
+          if (seen.has(m.id)) continue;
+          const pk = game.picks[m.id]?.[meId];
+          const p = pickPoints(m, pk);
+          if (p > 0) { pts += p; wins.push(`✓ ${tById[m.teamA]?.name} ${m.scoreA}–${m.scoreB} ${tById[m.teamB]?.name} · +${p}`); }
+        }
+        if (pts > 0) {
+          setPayout({ pts, wins });
+          fireConfetti();
+          try { navigator.vibrate && navigator.vibrate([35, 60, 35, 60, 70]); } catch (e) {}
+          setTimeout(() => setPayout(null), 8000);
+        }
       }
-      localStorage.setItem(key, String(row.total));
+      localStorage.setItem(key, JSON.stringify(finished.map((m) => m.id)));
     } catch (e) {}
   }, [game, meId]);
 
@@ -1282,7 +1313,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v15</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v16</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1314,7 +1345,16 @@ export default function App() {
     <div className="wc-app">
       <style>{CSS}</style>
       {errBanner}
-      {toast && <div className="toast">{toast}</div>}
+      {payout && (
+        <div className="payout" onClick={() => setPayout(null)}>
+          <div className="payout-card">
+            <div className="payout-label">Results are in</div>
+            <div className="payout-pts">+<CountUp value={payout.pts} duration={1400} /> PTS</div>
+            {payout.wins.map((w, i) => <div key={i} className="payout-win">{w}</div>)}
+            <div className="payout-tap">tap anywhere to continue</div>
+          </div>
+        </div>
+      )}
       <Confetti burst={burst} />
       <div className="beams" aria-hidden />
       <div className="particles" aria-hidden>
@@ -1323,7 +1363,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v15</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v16</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
