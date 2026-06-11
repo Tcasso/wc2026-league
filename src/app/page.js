@@ -1269,6 +1269,12 @@ export default function App() {
     } catch (e) {}
   }, [game, meId]);
 
+  // (must be declared before the early return below — React hook rules)
+  const particles = useMemo(() => Array.from({ length: 18 }, () => ({
+    left: Math.random() * 100, dur: 8 + Math.random() * 10,
+    delay: Math.random() * 10, size: 2 + Math.random() * 3,
+  })), []);
+
   const errBanner = pageErrors.length > 0 && (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 999, background: "#7a1220", color: "#fff", padding: "8px 14px", fontSize: 13, fontFamily: "monospace" }}>
       <b>⚠ Page error — send this text to fix it:</b>
@@ -1276,14 +1282,10 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v14</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v15</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
-  const particles = useMemo(() => Array.from({ length: 18 }, () => ({
-    left: Math.random() * 100, dur: 8 + Math.random() * 10,
-    delay: Math.random() * 10, size: 2 + Math.random() * 3,
-  })), []);
 
   // PIN-protected player selection: first pick sets a 4-digit PIN,
   // after that switching to a player requires their PIN.
@@ -1321,7 +1323,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v14</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v15</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
