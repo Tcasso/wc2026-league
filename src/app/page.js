@@ -281,17 +281,20 @@ function enqueueWrite(job) {
   return p;
 }
 // Strict load: returns null on failure so callers can abort instead of
-// accidentally writing an empty league over the real one.
+// accidentally writing an empty league over the real one. The failure
+// reason is kept so the UI can display it.
+let lastLoadError = "";
 async function loadGameStrict() {
-  if (!supabase) return null;
+  if (!supabase) { lastLoadError = supabaseInitError || "No database client."; return null; }
   try {
     const { data, error } = await supabase
       .from("leagues").select("data").eq("id", STORE_KEY).maybeSingle();
-    if (error) return null;
+    if (error) { lastLoadError = "Database error: " + (error.message || JSON.stringify(error)); return null; }
+    lastLoadError = "";
     if (data && data.data) return { ...DEFAULT_GAME, ...data.data };
     // Row genuinely doesn't exist yet (fresh league) — safe to start clean.
     return JSON.parse(JSON.stringify(DEFAULT_GAME));
-  } catch (e) { return null; }
+  } catch (e) { lastLoadError = "Can't reach Supabase: " + (e?.message || "network failure"); return null; }
 }
 async function persist(game) {
   if (!supabase) return false;
@@ -1095,7 +1098,8 @@ export default function App() {
   const refresh = useCallback(async () => {
     if (Date.now() - lastWriteAt < 6000) return;
     const g = await loadGameStrict();
-    if (g) setGame(g);
+    if (g) { setGame(g); setPageErrors((p) => p.filter((x) => !x.startsWith("Database") && !x.startsWith("Can't reach"))); }
+    else if (lastLoadError) setPageErrors((p) => p.includes(lastLoadError) ? p : [...p.slice(-3), lastLoadError]);
   }, []);
   useEffect(() => { refresh(); const t = setInterval(refresh, 20000); return () => clearInterval(t); }, [refresh]);
 
@@ -1140,7 +1144,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v6</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v7</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1156,7 +1160,7 @@ export default function App() {
       <Confetti burst={burst} />
       <nav className="nav">
         <span style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v6</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v7</span></div>
         <span className="pot-badge">💰 {money(game.config.currency, pot)}</span>
         <select className="who" value={meId} onChange={(e) => setMeId(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
