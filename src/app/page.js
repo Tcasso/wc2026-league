@@ -851,6 +851,58 @@ function TopScorers({ game }) {
   );
 }
 
+function TodayPage({ game, me, go }) {
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  useTick(true);
+  const now = Date.now();
+  const todayStr = new Date().toDateString();
+  const todays = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === todayStr)
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+
+  return (
+    <div className="page">
+      <div className="hero" style={{ padding: "24px 16px" }}>
+        <h1 style={{ fontSize: "clamp(34px,8vw,58px)" }}>TODAY</h1>
+        <div className="sub">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</div>
+      </div>
+      {todays.length === 0 ? (
+        <div className="panel muted" style={{ marginTop: 16 }}>No matches today. Rest day — sharpen your picks for tomorrow.</div>
+      ) : todays.map((m) => {
+        const a = tById[m.teamA], b = tById[m.teamB];
+        const lockAt = new Date(m.kickoff).getTime() - 7200000;
+        const locked = now >= lockAt || m.status === "finished";
+        const myPick = me ? game.picks[m.id]?.[me.id] : null;
+        const myLabel = myPick ? (myPick.pred === "A" ? a?.name : myPick.pred === "B" ? b?.name : "Draw") : null;
+        const isLive = m.live || (m.status !== "finished" && now >= new Date(m.kickoff).getTime() && now < new Date(m.kickoff).getTime() + 2.2 * 3600000);
+        return (
+          <div className={`match tap-match ${isLive ? "live-card" : ""}`} key={m.id} onClick={() => openMatchDetail(m)}>
+            <div className="meta">
+              <span>{STAGE_LABEL[m.stage]}</span>
+              {isLive ? <span className="live"><span className="dot" />LIVE</span>
+                : m.status === "finished" ? <span>FULL TIME</span> : <span>{new Date(m.kickoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>}
+            </div>
+            <div className="face">
+              <div className="team"><span className="fl">{a?.flag}</span><span className="nm">{a?.name}</span></div>
+              {(m.status === "finished" || (isLive && m.scoreA != null)) ? <div className="score">{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
+              <div className="team"><span className="fl">{b?.flag}</span><span className="nm">{b?.name}</span></div>
+            </div>
+            <div className="lockline" style={{ marginTop: 8 }}>
+              {myPick ? <span style={{ color: "var(--gold-bright)" }}>Your pick: {myLabel}</span>
+                : locked ? <span style={{ color: "var(--danger)" }}>Picks locked — you didn't pick</span>
+                : <span>Tap a match for line-ups · pick on the Picks tab</span>}
+            </div>
+          </div>
+        );
+      })}
+      {todays.length > 0 && (
+        <div style={{ textAlign: "center", marginTop: 12 }}>
+          <button className="btn btn-gold" onClick={() => go("picks")}>Make today's picks →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LiveScoresPage({ game, onRefresh }) {
   const key = game.config.apiKey;
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
@@ -1035,10 +1087,12 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
 
 function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate }) {
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
-  const [stageTab, setStageTab] = useState("GROUP");
+  const [stageTab, setStageTab] = useState("TODAY");
   useTick(true);
   const now = Date.now();
-  const matches = game.matches.filter((m) => m.stage === stageTab)
+  const todayStr = new Date().toDateString();
+  const matches = game.matches.filter((m) => m.status !== "void" &&
+      (stageTab === "TODAY" ? new Date(m.kickoff).toDateString() === todayStr : m.stage === stageTab))
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
   const setPick = (m, patch) => {
@@ -1059,12 +1113,13 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate }) {
     <div className="page">
       <div className="h-sec">Daily picks</div>
       <div className="subtab">
+        <button className={`btn ${stageTab === "TODAY" ? "btn-gold" : "btn-ghost"}`} onClick={() => setStageTab("TODAY")}>Today</button>
         {STAGES.map((s) => (
           <button key={s} className={`btn ${stageTab === s ? "btn-gold" : "btn-ghost"}`} onClick={() => setStageTab(s)}>{STAGE_LABEL[s]}</button>
         ))}
       </div>
       {!me && <div className="banner">Select your player in the top bar to make picks.</div>}
-      {matches.length === 0 && <div className="panel muted">No {STAGE_LABEL[stageTab]} fixtures yet.</div>}
+      {matches.length === 0 && <div className="panel muted">{stageTab === "TODAY" ? "No matches today — check the stage tabs for upcoming fixtures." : `No ${STAGE_LABEL[stageTab]} fixtures yet.`}</div>}
       {matches.map((m) => {
         const a = tById[m.teamA], b = tById[m.teamB];
         const lockAt = new Date(m.kickoff).getTime() - 7200000; // locks 2 hours before kickoff
@@ -1826,7 +1881,7 @@ export default function App() {
 
   // keep live scores fresh: poll every ~minute while watching Home or Picks
   useEffect(() => {
-    if (tab !== "home" && tab !== "picks" && tab !== "scores") return;
+    if (tab !== "home" && tab !== "picks" && tab !== "scores" && tab !== "today") return;
     const t = setInterval(() => pullFixtures(false), 65000);
     return () => clearInterval(t);
   }, [tab, pullFixtures]);
@@ -1895,7 +1950,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v23</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v24</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1919,11 +1974,11 @@ export default function App() {
   };
 
   const PRIMARY = [
-    ["home", "🏟️", "Home"], ["picks", "✅", "Picks"], ["scores", "📺", "Scores"],
-    ["board", "🏆", "Table"], ["shame", "💀", "Shame"],
+    ["today", "📅", "Today"], ["picks", "✅", "Picks"], ["scores", "📺", "Scores"],
+    ["board", "🏆", "Table"], ["home", "🏟️", "Home"],
   ];
   const MORE = [
-    ["underdog", "🐉", "Underdog"], ["final8", "🎯", "Final 8"],
+    ["shame", "💀", "Shame"], ["underdog", "🐉", "Underdog"], ["final8", "🎯", "Final 8"],
     ["prizes", "💰", "Prizes"], ["admin", "🛠️", "Admin"],
   ];
   const inMore = MORE.some(([k]) => k === tab);
@@ -1960,7 +2015,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v23</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v24</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
@@ -1971,6 +2026,7 @@ export default function App() {
       </div>
 
       {tab === "home" && <HomePage game={game} me={me} go={setTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
+      {tab === "today" && <TodayPage game={game} me={me} go={setTab} />}
       {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} />}
       {tab === "scores" && <LiveScoresPage game={game} onRefresh={() => pullFixtures(true)} />}
       {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
@@ -1998,7 +2054,7 @@ export default function App() {
 
       <div className="tabs">
         {PRIMARY.map(([k, ic, lab]) => (
-          <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => { setTab(k); setMoreOpen(false); if (k === "home" || k === "picks" || k === "scores") pullFixtures(false); }}>
+          <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => { setTab(k); setMoreOpen(false); if (k === "home" || k === "picks" || k === "scores" || k === "today") pullFixtures(false); }}>
             <span className="ic">{ic}</span>{lab}
           </button>
         ))}
