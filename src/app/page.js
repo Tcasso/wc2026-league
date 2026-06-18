@@ -302,6 +302,21 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .more-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:#0e0e11;border:1px solid #232326;border-radius:12px;color:var(--muted);font-family:'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;font-size:13px;cursor:pointer;}
 .more-item.on{border-color:var(--gold);color:var(--gold-bright);}
 .more-ic{font-size:24px;}
+.md-section{font-family:'Barlow Condensed';letter-spacing:.14em;text-transform:uppercase;font-size:12px;color:var(--muted);margin:16px 0 8px;}
+.md-formation{display:flex;justify-content:space-between;font-family:'Bebas Neue';font-size:20px;color:var(--gold-bright);padding:0 4px;}
+.lineup-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.xi-col{background:#0e0e11;border:1px solid #232326;border-radius:10px;padding:8px;}
+.xi-team{font-family:'Bebas Neue';font-size:16px;letter-spacing:.04em;padding:2px 4px 6px;border-bottom:1px solid #232326;margin-bottom:4px;}
+.xi-p{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 4px;}
+.xi-num{font-family:'Barlow Condensed';color:var(--gold-bright);min-width:22px;text-align:center;font-size:13px;}
+.xi-pos{margin-left:auto;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.ev-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 6px;border-bottom:1px dashed rgba(138,170,150,.12);}
+.ev-min{font-family:'Bebas Neue';color:var(--gold-bright);min-width:34px;}
+.scorer-line{display:flex;gap:8px;align-items:center;background:#0e0e11;border:1px solid #232326;border-radius:8px;padding:7px 10px;margin-bottom:5px;font-size:13px;}
+.scorer-rank{font-family:'Bebas Neue';color:var(--gold-bright);font-size:16px;min-width:22px;}
+.scorer-goals{margin-left:auto;font-family:'Bebas Neue';color:var(--gold-bright);font-size:18px;}
+.tap-match{cursor:pointer;}
+.tap-match:active{transform:scale(.995);}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
 `;
 
@@ -719,6 +734,123 @@ function computeGroupTables(game) {
   }));
 }
 
+function MatchDetailModal({ game, match, onClose }) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(true);
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const a = tById[match.teamA], b = tById[match.teamB];
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!match.apiId || !game.config.apiKey) { setLoading(false); setErr("No live detail for manually-added matches."); return; }
+      try {
+        const r = await fetch(`/api/fixtures?key=${encodeURIComponent(game.config.apiKey)}&type=match&matchId=${encodeURIComponent(match.apiId)}`);
+        const pl = await r.json().catch(() => ({}));
+        if (!alive) return;
+        if (pl.error) setErr(pl.error);
+        else setData(pl.match);
+      } catch (e) { if (alive) setErr("Couldn't load match detail."); }
+      if (alive) setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [match, game.config.apiKey]);
+
+  const ht = data?.homeTeam, at = data?.awayTeam;
+  const goals = data?.goals || [];
+  const bookings = data?.bookings || [];
+  const subs = data?.substitutions || [];
+  const events = [
+    ...goals.map((g) => ({ min: g.minute, icon: "⚽", text: `${g.scorer?.name || "Goal"}${g.assist ? ` (assist ${g.assist.name})` : ""}`, team: g.team?.name })),
+    ...bookings.map((bk) => ({ min: bk.minute, icon: bk.card === "RED" || bk.card === "RED_CARD" ? "🟥" : "🟨", text: bk.player?.name || "Booking", team: bk.team?.name })),
+    ...subs.map((su) => ({ min: su.minute, icon: "🔁", text: `${su.playerIn?.name || "?"} for ${su.playerOut?.name || "?"}`, team: su.team?.name })),
+  ].filter((e) => e.min != null).sort((x, y) => x.min - y.min);
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-hero">
+          <button className="close" onClick={onClose} aria-label="close">×</button>
+          <div className="face" style={{ marginTop: 6 }}>
+            <div className="team"><span className="fl">{a?.flag}</span><span className="nm">{a?.name}</span></div>
+            {(match.status === "finished" || match.live) && match.scoreA != null
+              ? <div className="score">{match.scoreA} – {match.scoreB}</div> : <div className="vs">VS</div>}
+            <div className="team"><span className="fl">{b?.flag}</span><span className="nm">{b?.name}</span></div>
+          </div>
+          <div className="modal-sub" style={{ textAlign: "center", marginTop: 6 }}>{STAGE_LABEL[match.stage]} · {match.live ? "LIVE" : match.status === "finished" ? "Full time" : fmtTime(match.kickoff)}</div>
+        </div>
+
+        <div style={{ padding: "4px 16px 18px" }}>
+          {loading && <div className="lockline">Loading match centre…</div>}
+          {err && <div className="note" style={{ color: "var(--danger)" }}>{err}</div>}
+
+          {events.length > 0 && <>
+            <div className="md-section">Match events</div>
+            {events.map((e, i) => <div key={i} className="ev-row"><span className="ev-min">{e.min}'</span><span>{e.icon}</span><span>{e.text}</span><span className="xi-pos">{e.team}</span></div>)}
+          </>}
+
+          {(ht?.lineup?.length > 0 || at?.lineup?.length > 0) && <>
+            <div className="md-section">Line-ups</div>
+            <div className="md-formation"><span>{ht?.formation || ""}</span><span>{at?.formation || ""}</span></div>
+            <div className="lineup-grid" style={{ marginTop: 6 }}>
+              {[ht, at].map((tm, idx) => (
+                <div className="xi-col" key={idx}>
+                  <div className="xi-team">{(idx === 0 ? a?.flag : b?.flag)} {tm?.name || ""}</div>
+                  {(tm?.lineup || []).map((pl) => (
+                    <div className="xi-p" key={pl.id}><span className="xi-num">{pl.shirtNumber ?? "–"}</span><span>{pl.name}</span><span className="xi-pos">{(pl.position || "").slice(0, 3)}</span></div>
+                  ))}
+                  {(tm?.bench?.length > 0) && <>
+                    <div className="xi-team" style={{ marginTop: 8, fontSize: 13 }}>Bench</div>
+                    {tm.bench.slice(0, 9).map((pl) => <div className="xi-p" key={pl.id} style={{ opacity: .7 }}><span className="xi-num">{pl.shirtNumber ?? "–"}</span><span>{pl.name}</span></div>)}
+                  </>}
+                </div>
+              ))}
+            </div>
+          </>}
+
+          {!loading && !err && events.length === 0 && (!ht?.lineup?.length) && (
+            <div className="note">Line-ups appear about an hour before kick-off. Events fill in as the match plays.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TopScorers({ game }) {
+  const [scorers, setScorers] = useState(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!game.config.apiKey) return;
+      try {
+        const r = await fetch(`/api/fixtures?key=${encodeURIComponent(game.config.apiKey)}&type=scorers`);
+        const pl = await r.json().catch(() => ({}));
+        if (!alive) return;
+        if (pl.error) setErr(pl.error); else setScorers(pl.scorers || []);
+      } catch (e) { if (alive) setErr("Couldn't load scorers."); }
+    })();
+    return () => { alive = false; };
+  }, [game.config.apiKey]);
+
+  if (!scorers || scorers.length === 0) return null;
+  return (
+    <>
+      <div className="h-sec">Golden Boot race</div>
+      {scorers.slice(0, 10).map((sc, i) => (
+        <div className="scorer-line" key={i}>
+          <span className="scorer-rank">{i + 1}</span>
+          <span>{flagFor(sc.player?.nationality)} {sc.player?.name}</span>
+          <span className="xi-pos">{sc.team?.name}</span>
+          <span className="scorer-goals">{sc.goals}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function LiveScoresPage({ game, onRefresh }) {
   const key = game.config.apiKey;
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
@@ -738,7 +870,7 @@ function LiveScoresPage({ game, onRefresh }) {
         live.map((m) => {
           const a = tById[m.teamA], b = tById[m.teamB];
           return (
-            <div className="match live-card" key={m.id}>
+            <div className="match live-card tap-match" key={m.id} onClick={() => openMatchDetail(m)}>
               <div className="meta"><span>{STAGE_LABEL[m.stage]}</span><span className="live"><span className="dot" />LIVE</span></div>
               <div className="face">
                 <div className="team"><span className="fl">{a?.flag}</span><span className="nm">{a?.name}</span></div>
@@ -785,7 +917,7 @@ function LiveScoresPage({ game, onRefresh }) {
             const a = tById[m.teamA], b = tById[m.teamB];
             const isLive = m.live;
             return (
-              <div className={`match ${isLive ? "live-card" : ""}`} key={m.id}>
+              <div className={`match tap-match ${isLive ? "live-card" : ""}`} key={m.id} onClick={() => openMatchDetail(m)}>
                 <div className="meta"><span>{STAGE_LABEL[m.stage]}</span>
                   {isLive ? <span className="live"><span className="dot" />LIVE</span>
                     : m.status === "finished" ? <span>FULL TIME</span> : <span>{fmtTime(m.kickoff)}</span>}
@@ -800,6 +932,8 @@ function LiveScoresPage({ game, onRefresh }) {
           })}
         </div>
       ))}
+      <TopScorers game={game} />
+      <div className="note">Tap any match above for line-ups, formations and a full event timeline.</div>
       <div style={{ textAlign: "center", marginTop: 14 }}>
         <button className="btn btn-ghost" onClick={() => onRefresh && onRefresh()}>Refresh scores & tables</button>
       </div>
@@ -1491,6 +1625,8 @@ function ProfileModal({ game, pid, meId, onClose, mutate }) {
 // Bridge: lets any page open a profile modal without threading props everywhere.
 let _openProfile = () => {};
 function openProfile(pid) { _openProfile(pid); }
+let _openMatch = () => {};
+function openMatchDetail(m) { _openMatch(m); }
 
 // Computes who deserves shaming today, with reasons.
 function computeShame(game) {
@@ -1714,6 +1850,8 @@ export default function App() {
   // THE PAYOUT: when new results have landed since you last looked and your
   // picks came in — take over the screen: points, the wins, confetti, haptics.
   const [profileId, setProfileId] = useState(null);
+  const [detailMatch, setDetailMatch] = useState(null);
+  useEffect(() => { _openMatch = (m) => setDetailMatch(m); return () => { _openMatch = () => {}; }; }, []);
   const [moreOpen, setMoreOpen] = useState(false);
   useEffect(() => { _openProfile = (pid) => setProfileId(pid); return () => { _openProfile = () => {}; }; }, []);
   const [payout, setPayout] = useState(null);
@@ -1757,7 +1895,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v22</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v23</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1806,6 +1944,7 @@ export default function App() {
       )}
       <Confetti burst={burst} colors={burstColors} />
       {profileId && <ProfileModal game={game} pid={profileId} meId={meId} onClose={() => setProfileId(null)} mutate={mutate} />}
+      {detailMatch && <MatchDetailModal game={game} match={detailMatch} onClose={() => setDetailMatch(null)} />}
       {pickFlash && (
         <div className="pickflash" aria-hidden>
           <div className="pf-inner">
@@ -1821,7 +1960,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v22</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v23</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
