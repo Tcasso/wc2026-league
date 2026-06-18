@@ -21,6 +21,10 @@ export async function GET(request) {
       const matchId = searchParams.get("matchId");
       if (!matchId) return Response.json({ error: "no-match-id" }, { status: 400 });
       url = `https://api.football-data.org/v4/matches/${encodeURIComponent(matchId)}`;
+    } else if (type === "squad") {
+      const teamId = searchParams.get("teamId");
+      if (!teamId) return Response.json({ error: "no-team-id" }, { status: 400 });
+      url = `https://api.football-data.org/v4/teams/${encodeURIComponent(teamId)}`;
     } else {
       url = `https://api.football-data.org/v4/competitions/WC/matches`;
     }
@@ -37,6 +41,7 @@ export async function GET(request) {
     if (type === "standings") return Response.json({ standings: data.standings || [] }, { status: 200 });
     if (type === "scorers") return Response.json({ scorers: data.scorers || [] }, { status: 200 });
     if (type === "match") return Response.json({ match: data }, { status: 200 });
+    if (type === "squad") return Response.json({ team: data }, { status: 200 });
     return Response.json({ matches: data.matches || [] }, { status: 200 });
   } catch (e) {
     return Response.json(

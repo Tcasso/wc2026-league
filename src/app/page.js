@@ -521,8 +521,10 @@ function mergeFixtures(g, apiMatches) {
     const nameA = am.homeTeam.name, nameB = am.awayTeam.name;
     let tA = g.teams.find((t) => t.name === nameA);
     if (!tA) { tA = { id: uid(), name: nameA, flag: flagFor(nameA), eligible: true, furthest: "none", wonAll3: false }; g.teams.push(tA); }
+    if (am.homeTeam.id && !tA.apiTeamId) tA.apiTeamId = String(am.homeTeam.id);
     let tB = g.teams.find((t) => t.name === nameB);
     if (!tB) { tB = { id: uid(), name: nameB, flag: flagFor(nameB), eligible: true, furthest: "none", wonAll3: false }; g.teams.push(tB); }
+    if (am.awayTeam.id && !tB.apiTeamId) tB.apiTeamId = String(am.awayTeam.id);
     const stage = apiStage(am.stage);
     const status = am.status === "FINISHED" ? "finished"
       : (am.status === "IN_PLAY" || am.status === "PAUSED") ? "live" : "scheduled";
@@ -748,6 +750,47 @@ function computeGroupTables(game) {
   }));
 }
 
+function SquadView({ apiKey, team, flag }) {
+  const [open, setOpen] = useState(false);
+  const [squad, setSquad] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const load = async () => {
+    if (squad || !team?.apiTeamId) { setOpen((o) => !o); return; }
+    setOpen(true); setLoading(true); setErr("");
+    try {
+      const r = await fetch(`/api/fixtures?key=${encodeURIComponent(apiKey)}&type=squad&teamId=${encodeURIComponent(team.apiTeamId)}`);
+      const pl = await r.json().catch(() => ({}));
+      if (pl.error) setErr(pl.error); else setSquad(pl.team?.squad || []);
+    } catch (e) { setErr("Couldn't load squad."); }
+    setLoading(false);
+  };
+  if (!team?.apiTeamId) return null;
+  const byPos = {};
+  (squad || []).forEach((p) => { const pos = p.position || "Other"; (byPos[pos] = byPos[pos] || []).push(p); });
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button className="btn btn-ghost" style={{ width: "100%", fontSize: 12 }} onClick={load}>
+        {open ? "▲ Hide" : "▼ View"} {flag} {team.name} squad
+      </button>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          {loading && <div className="lockline">Loading squad…</div>}
+          {err && <div className="note" style={{ color: "var(--danger)" }}>{err}</div>}
+          {squad && Object.entries(byPos).map(([pos, players]) => (
+            <div key={pos}>
+              <div className="md-section" style={{ margin: "8px 0 4px" }}>{pos}</div>
+              {players.map((pl) => (
+                <div className="xi-p" key={pl.id}><span className="xi-num">{pl.shirtNumber ?? "–"}</span><span>{pl.name}</span><span className="xi-pos">{pl.nationality || ""}</span></div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MatchDetailModal({ game, match, onClose }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
@@ -824,7 +867,15 @@ function MatchDetailModal({ game, match, onClose }) {
           </>}
 
           {!loading && !err && events.length === 0 && (!ht?.lineup?.length) && (
-            <div className="note">Line-ups appear about an hour before kick-off. Events fill in as the match plays.</div>
+            <div className="note">Line-ups appear about an hour before kick-off. Events fill in as the match plays. Full squads below.</div>
+          )}
+
+          {game.config.apiKey && (
+            <>
+              <div className="md-section">Squads</div>
+              <SquadView apiKey={game.config.apiKey} team={a} flag={a?.flag} />
+              <SquadView apiKey={game.config.apiKey} team={b} flag={b?.flag} />
+            </>
           )}
         </div>
       </div>
@@ -2009,7 +2060,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v26</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v27</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -2070,7 +2121,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v26</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v27</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
