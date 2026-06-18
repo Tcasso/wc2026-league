@@ -686,34 +686,46 @@ const Sticker = ({ children, style }) => {
 
 /* ════════════════ PAGES ════════════════ */
 
+// name → group letter, derived from the built-in WC_TEAMS map
+const TEAM_GROUP = Object.fromEntries(Object.values(WC_TEAMS).map(([name, , grp]) => [name, grp]));
+
+// Compute group tables locally from finished group-stage results (no API needed).
+function computeGroupTables(game) {
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const groupMatches = game.matches.filter((m) => m.stage === "GROUP" && m.status !== "void");
+  const tbl = {}; // group letter -> { teamId -> row }
+  const ensure = (grp, tid) => {
+    if (!tbl[grp]) tbl[grp] = {};
+    if (!tbl[grp][tid]) { const t = tById[tid]; tbl[grp][tid] = { team: t, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, Pts: 0 }; }
+    return tbl[grp][tid];
+  };
+  for (const m of groupMatches) {
+    const a = tById[m.teamA], b = tById[m.teamB];
+    if (!a || !b) continue;
+    const grp = TEAM_GROUP[a.name] || TEAM_GROUP[b.name];
+    if (!grp) continue;
+    // register both teams even before they've played, so tables show full group
+    const ra = ensure(grp, m.teamA), rb = ensure(grp, m.teamB);
+    if (m.status !== "finished" || m.scoreA == null || m.scoreB == null) continue;
+    ra.P++; rb.P++; ra.GF += m.scoreA; ra.GA += m.scoreB; rb.GF += m.scoreB; rb.GA += m.scoreA;
+    if (m.scoreA > m.scoreB) { ra.W++; ra.Pts += 3; rb.L++; }
+    else if (m.scoreA < m.scoreB) { rb.W++; rb.Pts += 3; ra.L++; }
+    else { ra.D++; rb.D++; ra.Pts++; rb.Pts++; }
+  }
+  return Object.keys(tbl).sort().map((grp) => ({
+    group: grp,
+    rows: Object.values(tbl[grp]).sort((x, y) =>
+      y.Pts - x.Pts || (y.GF - y.GA) - (x.GF - x.GA) || y.GF - x.GF || (x.team?.name || "").localeCompare(y.team?.name || "")),
+  }));
+}
+
 function LiveScoresPage({ game, onRefresh }) {
-  const [standings, setStandings] = useState(null);
-  const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
   const key = game.config.apiKey;
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
-  const lastStandRef = useRef(0);
-
-  const loadStandings = useCallback(async (force = false) => {
-    if (!key) return;
-    const now = Date.now();
-    if (!force && now - lastStandRef.current < 120000) return;
-    lastStandRef.current = now;
-    setLoading(true); setErr("");
-    try {
-      const r = await fetch(`/api/fixtures?key=${encodeURIComponent(key)}&type=standings`);
-      const pl = await r.json().catch(() => ({}));
-      if (!r.ok || pl.error) setErr(pl.error || `API error (${r.status}).`);
-      else setStandings(pl.standings || []);
-    } catch (e) { setErr("Couldn't reach the scores service."); }
-    setLoading(false);
-  }, [key]);
-  useEffect(() => { loadStandings(false); const t = setInterval(() => loadStandings(false), 130000); return () => clearInterval(t); }, [loadStandings]);
-
   useTick(true);
   const now = Date.now();
   const live = game.matches.filter((m) => m.live && m.status !== "void");
-  const groups = (standings || []).filter((st) => st.type === "TOTAL" && st.stage === "GROUP_STAGE");
+  const groupTables = computeGroupTables(game);
   const KO_ORDER = ["R32", "R16", "QF", "SF", "FINAL"];
   const ko = KO_ORDER.map((st) => [st, game.matches.filter((m) => m.stage === st && m.status !== "void")
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff))]).filter(([, ms]) => ms.length > 0);
@@ -738,30 +750,31 @@ function LiveScoresPage({ game, onRefresh }) {
         })}
 
       <div className="h-sec">Group tables</div>
-      {loading && !standings && <div className="lockline">Pulling the official tables…</div>}
-      {err && <div className="panel" style={{ color: "var(--danger)" }}>{err}</div>}
-      {standings && groups.length === 0 && !err && <div className="panel muted">Tables appear here once the API publishes them.</div>}
+      {groupTables.length === 0 && <div className="panel muted">Tables build automatically as group-stage results come in.</div>}
       <div className="grid2">
-        {groups.map((g) => (
+        {groupTables.map((g) => (
           <div className="panel" style={{ padding: "8px 4px" }} key={g.group}>
-            <div className="gt-title">{(g.group || "").replace("GROUP_", "Group ")}</div>
+            <div className="gt-title">Group {g.group}</div>
             <div className="gt-head"><span>#</span><span>Team</span><span className="num">P</span><span className="num">W</span><span className="num">D</span><span className="num">L</span><span className="num">GD</span><span className="num">Pts</span></div>
-            {(g.table || []).map((row) => (
-              <div className={`gt-row ${row.position <= 2 ? "q" : ""}`} key={row.team?.id || row.position}>
-                <span className="pos">{row.position}</span>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{flagFor(row.team?.name)} {row.team?.name}</span>
-                <span className="num">{row.playedGames}</span>
-                <span className="num">{row.won}</span>
-                <span className="num">{row.draw}</span>
-                <span className="num">{row.lost}</span>
-                <span className="num">{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</span>
-                <span className="pts">{row.points}</span>
-              </div>
-            ))}
+            {g.rows.map((row, i) => {
+              const gd = row.GF - row.GA;
+              return (
+                <div className={`gt-row ${i < 2 ? "q" : ""}`} key={row.team?.id || i}>
+                  <span className="pos">{i + 1}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.team?.flag} {row.team?.name}</span>
+                  <span className="num">{row.P}</span>
+                  <span className="num">{row.W}</span>
+                  <span className="num">{row.D}</span>
+                  <span className="num">{row.L}</span>
+                  <span className="num">{gd > 0 ? `+${gd}` : gd}</span>
+                  <span className="pts">{row.Pts}</span>
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
-      {groups.length > 0 && <div className="note">Top two in each group (highlighted) plus the best third-placed teams advance.</div>}
+      {groupTables.length > 0 && <div className="note">Top two in each group (highlighted) plus the best third-placed teams advance. Sorted by points → goal difference → goals scored.</div>}
 
       <div className="h-sec">Knockout road</div>
       {ko.length === 0 && <div className="panel muted">Knockout fixtures land here once the group stage decides them.</div>}
@@ -788,7 +801,7 @@ function LiveScoresPage({ game, onRefresh }) {
         </div>
       ))}
       <div style={{ textAlign: "center", marginTop: 14 }}>
-        <button className="btn btn-ghost" onClick={() => { loadStandings(true); onRefresh && onRefresh(); }}>Refresh scores & tables</button>
+        <button className="btn btn-ghost" onClick={() => onRefresh && onRefresh()}>Refresh scores & tables</button>
       </div>
     </div>
   );
@@ -1744,7 +1757,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v21</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v22</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1808,7 +1821,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v21</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v22</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
