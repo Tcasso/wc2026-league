@@ -317,6 +317,18 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .scorer-goals{margin-left:auto;font-family:'Bebas Neue';color:var(--gold-bright);font-size:18px;}
 .tap-match{cursor:pointer;}
 .tap-match:active{transform:scale(.995);}
+.date-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 12px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+.date-strip::-webkit-scrollbar{height:0;}
+.date-chip{flex:0 0 auto;scroll-snap-align:center;width:62px;padding:8px 4px;border-radius:12px;border:1px solid #232326;background:#121214;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;transition:all .15s;position:relative;}
+.date-chip:hover{border-color:rgba(201,168,76,.5);}
+.date-chip.on{background:linear-gradient(160deg,#2a2008,#1c1405);border-color:var(--gold);color:var(--gold-bright);box-shadow:0 0 14px rgba(240,201,58,.3);}
+.dc-dow{font-family:'Barlow Condensed';letter-spacing:.1em;font-size:10px;text-transform:uppercase;}
+.dc-day{font-family:'Bebas Neue';font-size:22px;line-height:1;}
+.dc-mon{font-family:'Barlow Condensed';font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;}
+.dc-cnt{position:absolute;top:-5px;right:-3px;background:var(--pitch-light);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
+.date-chip.on .dc-cnt{background:var(--gold-bright);color:#1a1405;}
+.tab-more{position:relative;}
+.tab-more .more-glow{position:absolute;top:2px;right:14px;width:6px;height:6px;border-radius:50%;background:var(--gold-bright);box-shadow:0 0 8px var(--gold-bright);}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
 `;
 
@@ -851,22 +863,62 @@ function TopScorers({ game }) {
   );
 }
 
+// Horizontal scrollable date picker — every matchday with games
+function DateStrip({ game, selected, onSelect }) {
+  const days = useMemo(() => {
+    const set = new Map();
+    for (const m of game.matches) {
+      if (m.status === "void") continue;
+      const d = new Date(m.kickoff); const key = d.toDateString();
+      if (!set.has(key)) set.set(key, { key, date: d, count: 0 });
+      set.get(key).count++;
+    }
+    return [...set.values()].sort((a, b) => a.date - b.date);
+  }, [game.matches]);
+  const todayStr = new Date().toDateString();
+  const ref = useRef(null);
+  useEffect(() => {
+    // auto-scroll the selected chip into view
+    const el = ref.current?.querySelector(".date-chip.on");
+    if (el) el.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [selected]);
+  if (days.length === 0) return null;
+  return (
+    <div className="date-strip" ref={ref}>
+      {days.map((d) => {
+        const isToday = d.key === todayStr;
+        return (
+          <button key={d.key} className={`date-chip ${selected === d.key ? "on" : ""}`} onClick={() => onSelect(d.key)}>
+            <span className="dc-dow">{isToday ? "TODAY" : d.date.toLocaleDateString(undefined, { weekday: "short" })}</span>
+            <span className="dc-day">{d.date.getDate()}</span>
+            <span className="dc-mon">{d.date.toLocaleDateString(undefined, { month: "short" })}</span>
+            <span className="dc-cnt">{d.count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function TodayPage({ game, me, go }) {
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
   useTick(true);
   const now = Date.now();
-  const todayStr = new Date().toDateString();
-  const todays = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === todayStr)
+  const [selDate, setSelDate] = useState(new Date().toDateString());
+  const todays = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === selDate)
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+  const selObj = new Date(selDate);
+  const isToday = selDate === new Date().toDateString();
 
   return (
     <div className="page">
-      <div className="hero" style={{ padding: "24px 16px" }}>
-        <h1 style={{ fontSize: "clamp(34px,8vw,58px)" }}>TODAY</h1>
-        <div className="sub">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</div>
+      <div className="hero" style={{ padding: "20px 16px" }}>
+        <h1 style={{ fontSize: "clamp(30px,7vw,52px)" }}>{isToday ? "TODAY" : selObj.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase()}</h1>
+        <div className="sub">{selObj.toLocaleDateString(undefined, { day: "numeric", month: "long" })}</div>
       </div>
+      <DateStrip game={game} selected={selDate} onSelect={setSelDate} />
       {todays.length === 0 ? (
-        <div className="panel muted" style={{ marginTop: 16 }}>No matches today. Rest day — sharpen your picks for tomorrow.</div>
+        <div className="panel muted" style={{ marginTop: 8 }}>No matches on this day. Swipe the dates above to find fixtures.</div>
       ) : todays.map((m) => {
         const a = tById[m.teamA], b = tById[m.teamB];
         const lockAt = new Date(m.kickoff).getTime() - 7200000;
@@ -1087,12 +1139,18 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
 
 function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate }) {
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
-  const [stageTab, setStageTab] = useState("TODAY");
   useTick(true);
   const now = Date.now();
-  const todayStr = new Date().toDateString();
-  const matches = game.matches.filter((m) => m.status !== "void" &&
-      (stageTab === "TODAY" ? new Date(m.kickoff).toDateString() === todayStr : m.stage === stageTab))
+  // default to today if it has games, else the next matchday
+  const defaultDay = useMemo(() => {
+    const t = new Date().toDateString();
+    const future = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff) >= new Date(new Date().toDateString()))
+      .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+    const hasToday = game.matches.some((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === t);
+    return hasToday ? t : (future[0] ? new Date(future[0].kickoff).toDateString() : t);
+  }, [game.matches]);
+  const [selDate, setSelDate] = useState(defaultDay);
+  const matches = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === selDate)
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
   const setPick = (m, patch) => {
@@ -1112,14 +1170,9 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate }) {
   return (
     <div className="page">
       <div className="h-sec">Daily picks</div>
-      <div className="subtab">
-        <button className={`btn ${stageTab === "TODAY" ? "btn-gold" : "btn-ghost"}`} onClick={() => setStageTab("TODAY")}>Today</button>
-        {STAGES.map((s) => (
-          <button key={s} className={`btn ${stageTab === s ? "btn-gold" : "btn-ghost"}`} onClick={() => setStageTab(s)}>{STAGE_LABEL[s]}</button>
-        ))}
-      </div>
+      <DateStrip game={game} selected={selDate} onSelect={setSelDate} />
       {!me && <div className="banner">Select your player in the top bar to make picks.</div>}
-      {matches.length === 0 && <div className="panel muted">{stageTab === "TODAY" ? "No matches today — check the stage tabs for upcoming fixtures." : `No ${STAGE_LABEL[stageTab]} fixtures yet.`}</div>}
+      {matches.length === 0 && <div className="panel muted">No matches on this day — swipe the dates above.</div>}
       {matches.map((m) => {
         const a = tById[m.teamA], b = tById[m.teamB];
         const lockAt = new Date(m.kickoff).getTime() - 7200000; // locks 2 hours before kickoff
@@ -1950,7 +2003,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v24</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v25</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -2015,7 +2068,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v24</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v25</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
@@ -2040,6 +2093,7 @@ export default function App() {
         <div className="more-bg" onClick={() => setMoreOpen(false)}>
           <div className="more-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="more-grip" />
+            <div className="bebas" style={{ fontSize: 20, letterSpacing: ".06em", padding: "0 4px 10px", color: "var(--gold-bright)" }}>More to explore</div>
             <div className="more-grid">
               {MORE.map(([k, ic, lab]) => (
                 <button key={k} className={`more-item ${tab === k ? "on" : ""}`}
@@ -2058,8 +2112,9 @@ export default function App() {
             <span className="ic">{ic}</span>{lab}
           </button>
         ))}
-        <button className={`tab ${inMore ? "on" : ""}`} onClick={() => setMoreOpen((o) => !o)}>
-          <span className="ic">⋯</span>More
+        <button className={`tab tab-more ${inMore || moreOpen ? "on" : ""}`} onClick={() => setMoreOpen((o) => !o)}>
+          <span className="ic">{moreOpen ? "✕" : "☰"}</span>{moreOpen ? "Close" : "Menu"}
+          {!moreOpen && <span className="more-glow" />}
         </button>
       </div>
     </div>
