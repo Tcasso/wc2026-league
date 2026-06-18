@@ -63,13 +63,15 @@ const CSS = `
   border-radius:8px;padding:6px 10px;font-family:'Barlow Condensed';font-size:15px;letter-spacing:.08em;text-transform:uppercase;}
 
 /* tabs */
-.tabs{position:fixed;bottom:0;left:0;right:0;z-index:50;display:flex;justify-content:space-around;
-  background:rgba(7,13,10,.96);border-top:1px solid rgba(201,168,76,.3);padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
-.tab{flex:1;max-width:110px;background:none;border:none;color:var(--muted);cursor:pointer;
-  font-family:'Barlow Condensed';font-size:12px;letter-spacing:.1em;text-transform:uppercase;
-  display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;border-radius:8px;}
-.tab .ic{font-size:18px;}
-.tab.on{color:var(--gold-bright);}
+.tabs{position:fixed;bottom:0;left:0;right:0;z-index:50;display:flex;gap:2px;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
+  background:rgba(7,13,10,.97);border-top:1px solid rgba(201,168,76,.3);padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);}
+.tabs::-webkit-scrollbar{height:0;}
+.tab{flex:0 0 auto;scroll-snap-align:center;min-width:62px;background:none;border:none;color:var(--muted);cursor:pointer;
+  font-family:'Barlow Condensed';font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 8px;border-radius:10px;transition:background .15s;}
+.tab .ic{font-size:19px;}
+.tab.on{color:var(--gold-bright);background:rgba(240,201,58,.1);}
 .tab:focus-visible{outline:2px solid var(--sky);}
 
 .page{max-width:880px;margin:0 auto;padding:20px 16px;}
@@ -1960,7 +1962,11 @@ export default function App() {
   const [profileId, setProfileId] = useState(null);
   const [detailMatch, setDetailMatch] = useState(null);
   useEffect(() => { _openMatch = (m) => setDetailMatch(m); return () => { _openMatch = () => {}; }; }, []);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const tabsRef = useRef(null);
+  useEffect(() => {
+    const el = tabsRef.current?.querySelector(".tab.on");
+    if (el) el.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [tab]);
   useEffect(() => { _openProfile = (pid) => setProfileId(pid); return () => { _openProfile = () => {}; }; }, []);
   const [payout, setPayout] = useState(null);
   useEffect(() => {
@@ -2003,7 +2009,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v25</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v26</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -2026,15 +2032,11 @@ export default function App() {
     }
   };
 
-  const PRIMARY = [
+  const ALL_TABS = [
     ["today", "📅", "Today"], ["picks", "✅", "Picks"], ["scores", "📺", "Scores"],
-    ["board", "🏆", "Table"], ["home", "🏟️", "Home"],
+    ["board", "🏆", "Table"], ["shame", "💀", "Shame"], ["underdog", "🐉", "Underdog"],
+    ["final8", "🎯", "Final 8"], ["prizes", "💰", "Prizes"], ["home", "🏟️", "Home"], ["admin", "🛠️", "Admin"],
   ];
-  const MORE = [
-    ["shame", "💀", "Shame"], ["underdog", "🐉", "Underdog"], ["final8", "🎯", "Final 8"],
-    ["prizes", "💰", "Prizes"], ["admin", "🛠️", "Admin"],
-  ];
-  const inMore = MORE.some(([k]) => k === tab);
 
   return (
     <div className="wc-app">
@@ -2068,7 +2070,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v25</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v26</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
@@ -2089,33 +2091,12 @@ export default function App() {
       {tab === "prizes" && <PrizesPage game={game} />}
       {tab === "admin" && <AdminPage game={game} mutate={mutate} isAdmin={isAdmin} setIsAdmin={setIsAdmin} fireConfetti={fireConfetti} onRefresh={() => pullFixtures(true)} fxStatus={fxStatus} />}
 
-      {moreOpen && (
-        <div className="more-bg" onClick={() => setMoreOpen(false)}>
-          <div className="more-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="more-grip" />
-            <div className="bebas" style={{ fontSize: 20, letterSpacing: ".06em", padding: "0 4px 10px", color: "var(--gold-bright)" }}>More to explore</div>
-            <div className="more-grid">
-              {MORE.map(([k, ic, lab]) => (
-                <button key={k} className={`more-item ${tab === k ? "on" : ""}`}
-                  onClick={() => { setTab(k); setMoreOpen(false); }}>
-                  <span className="more-ic">{ic}</span>{lab}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="tabs">
-        {PRIMARY.map(([k, ic, lab]) => (
-          <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => { setTab(k); setMoreOpen(false); if (k === "home" || k === "picks" || k === "scores" || k === "today") pullFixtures(false); }}>
+      <div className="tabs" ref={tabsRef}>
+        {ALL_TABS.map(([k, ic, lab]) => (
+          <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => { setTab(k); if (k === "home" || k === "picks" || k === "scores" || k === "today") pullFixtures(false); }}>
             <span className="ic">{ic}</span>{lab}
           </button>
         ))}
-        <button className={`tab tab-more ${inMore || moreOpen ? "on" : ""}`} onClick={() => setMoreOpen((o) => !o)}>
-          <span className="ic">{moreOpen ? "✕" : "☰"}</span>{moreOpen ? "Close" : "Menu"}
-          {!moreOpen && <span className="more-glow" />}
-        </button>
       </div>
     </div>
   );
