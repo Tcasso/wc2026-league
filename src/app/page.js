@@ -582,8 +582,9 @@ function computeStandings(game) {
     const udGroupPts = udTeam ? teamGroupUdPts(udTeam) : 0;
     const f8Team = final8[p.id] ? tById[final8[p.id].teamId] : null;
     const f8Pts = f8Team ? (F8_VALUE[f8Team.furthest] || 0) : 0;
-    return { p, daily, groupDaily, koDaily, udTeam, udPts, udGroupPts, f8Team, f8Pts,
-      knockout: koDaily + f8Pts, total: daily + udPts + f8Pts };
+    const adjust = Number(p.adjust) || 0; // manual admin points (late joiners, corrections)
+    return { p, daily, groupDaily, koDaily, udTeam, udPts, udGroupPts, f8Team, f8Pts, adjust,
+      knockout: koDaily + f8Pts, total: daily + udPts + f8Pts + adjust };
   });
 }
 function pickOrder(game) {
@@ -1459,7 +1460,7 @@ function LeaderboardPage({ game }) {
               <div className="muted" style={{ marginBottom: 6 }}>
                 Underdog: {r.udTeam ? `${r.udTeam.flag} ${r.udTeam.name} (${r.udPts} pts)` : "—"} ·
                 Final 8: {r.f8Team ? ` ${r.f8Team.flag} ${r.f8Team.name} (${r.f8Pts} pts)` : " —"} ·
-                Group daily: {r.groupDaily} · Knockout daily: {r.koDaily}
+                Group daily: {r.groupDaily} · Knockout daily: {r.koDaily}{r.adjust ? ` · Bonus/adjust: ${r.adjust > 0 ? "+" : ""}${r.adjust}` : ""}
               </div>
               {game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id]).map((m) => {
                 const pk = game.picks[m.id][r.p.id];
@@ -1596,17 +1597,27 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
             setNewPlayer({ name: "", avatar: "⚽", country: "" });
           }}>Add player</button>
         </div>
-        <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {game.players.map((p) => (
-            <span key={p.id} className="chip">{p.avatar} {p.name}{p.pin ? " 🔒" : ""}
-              {p.pin && <button className="btn btn-ghost" style={{ padding: "0 6px", fontSize: 11 }}
-                title="Reset PIN"
-                onClick={() => { if (confirm(`Reset ${p.name}'s PIN? They'll set a new one next time they select their name.`)) mutate((g) => { const gp = g.players.find((x) => x.id === p.id); if (gp) delete gp.pin; }); }}>PIN↺</button>}
-              <button className="btn btn-danger" style={{ padding: "0 6px", fontSize: 11 }}
-                onClick={() => { if (confirm(`Remove ${p.name}?`)) mutate((g) => { g.players = g.players.filter((x) => x.id !== p.id); delete g.underdog[p.id]; delete g.final8[p.id]; }); }}>×</button>
-            </span>
-          ))}
+        <div style={{ marginTop: 12 }}>
+          {game.players.map((p) => {
+            const row = computeStandings(game).find((r) => r.p.id === p.id);
+            return (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "8px 0", borderBottom: "1px dashed rgba(138,170,150,.15)" }}>
+                <span style={{ minWidth: 130, fontSize: 14 }}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</span>
+                <span className="muted barlow" style={{ fontSize: 11 }}>{row?.total ?? 0} pts total</span>
+                <label className="barlow muted" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+                  Bonus/adjust
+                  <input style={{ width: 64 }} inputMode="numeric" defaultValue={p.adjust || 0}
+                    onBlur={(e) => mutate((g) => { const gp = g.players.find((x) => x.id === p.id); if (gp) gp.adjust = Number(e.target.value) || 0; })} />
+                </label>
+                {p.pin && <button className="btn btn-ghost" style={{ padding: "3px 8px", fontSize: 11 }}
+                  onClick={() => { if (confirm(`Reset ${p.name}'s PIN? They'll set a new one next time they select their name.`)) mutate((g) => { const gp = g.players.find((x) => x.id === p.id); if (gp) delete gp.pin; }); }}>Reset PIN</button>}
+                <button className="btn btn-danger" style={{ padding: "3px 8px", fontSize: 11 }}
+                  onClick={() => { if (confirm(`Remove ${p.name}?`)) mutate((g) => { g.players = g.players.filter((x) => x.id !== p.id); delete g.underdog[p.id]; delete g.final8[p.id]; }); }}>Remove</button>
+              </div>
+            );
+          })}
         </div>
+        <div className="note">"Bonus/adjust" adds (or subtracts, with a minus sign) points to a player's total — handy for late joiners or corrections. Click away from the box to save.</div>
       </div>
 
       <div className="h-sec">Teams</div>
@@ -2060,7 +2071,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v27</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v28</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -2121,7 +2132,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v27</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v28</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
