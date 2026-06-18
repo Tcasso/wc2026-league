@@ -252,6 +252,56 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .pickflash .pf-flag{font-size:64px;line-height:1;display:block;}
 .pickflash .pf-text{font-family:'Bebas Neue';font-size:clamp(40px,9vw,72px);letter-spacing:.08em;color:var(--gold-bright);text-shadow:0 0 30px rgba(240,201,58,.85),0 4px 18px rgba(0,0,0,.7);}
 @keyframes pfPop{0%{opacity:0;transform:scale(.5)}14%{opacity:1;transform:scale(1.08)}24%{transform:scale(1)}78%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.06) translateY(-12px)}}
+.gt-head,.gt-row{display:grid;grid-template-columns:22px 1fr 26px 26px 26px 26px 34px 34px;gap:4px;align-items:center;padding:5px 10px;font-size:12px;}
+.gt-head{font-family:'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-size:10px;padding-bottom:2px;}
+.gt-row{border-top:1px dashed rgba(138,170,150,.15);}
+.gt-row .pos{font-family:'Bebas Neue';color:var(--gold-bright);font-size:15px;}
+.gt-row .pts{font-family:'Bebas Neue';font-size:16px;color:var(--gold-bright);text-align:right;}
+.gt-row .num{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;}
+.gt-row.q{background:rgba(45,110,71,.18);}
+.gt-title{font-family:'Bebas Neue';font-size:18px;letter-spacing:.08em;padding:8px 10px 2px;color:var(--white);}
+.pname{cursor:pointer;border-bottom:1px dotted rgba(201,168,76,.5);}
+.modal-bg{position:fixed;inset:0;z-index:320;background:rgba(5,6,7,.86);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px;animation:payIn .2s ease;}
+.modal{width:100%;max-width:440px;max-height:88vh;overflow-y:auto;background:linear-gradient(180deg,#141417,#0d0d10);border:1px solid rgba(201,168,76,.4);border-radius:18px;padding:0;animation:cardPop .4s cubic-bezier(.2,1.5,.4,1);}
+.modal-hero{position:relative;padding:24px 20px 18px;border-radius:18px 18px 0 0;border-bottom:1px solid rgba(201,168,76,.25);overflow:hidden;}
+.modal-hero .close{position:absolute;top:12px;right:14px;background:rgba(0,0,0,.35);border:none;color:#fff;font-size:20px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;}
+.modal-avatar{font-size:54px;line-height:1;}
+.modal-name{font-family:'Bebas Neue';font-size:34px;letter-spacing:.05em;margin-top:6px;}
+.modal-sub{font-family:'Barlow Condensed';letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-size:13px;}
+.modal-tag{font-style:italic;color:#d8d4c6;margin-top:8px;font-size:14px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:16px 18px;}
+.stat-box{background:#0e0e11;border:1px solid #232326;border-radius:10px;padding:10px;text-align:center;}
+.stat-box .v{font-family:'Bebas Neue';font-size:26px;color:var(--gold-bright);}
+.stat-box .l{font-family:'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;font-size:10px;color:var(--muted);}
+.edit-row{padding:0 18px 8px;}
+.edit-row label{display:block;font-family:'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;font-size:11px;color:var(--muted);margin:8px 0 3px;}
+.edit-row input{width:100%;}
+.swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+.swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
+.swatch.on{border-color:#fff;}
+.shame-card{background:linear-gradient(180deg,#1a1012,#120c0d);border:1px solid rgba(230,57,70,.4);border-radius:14px;padding:14px;margin-bottom:12px;}
+.shame-card .who{display:flex;align-items:center;gap:8px;}
+.shame-card .who .av{font-size:26px;}
+.shame-card .who .nm{font-family:'Bebas Neue';font-size:20px;letter-spacing:.04em;}
+.shame-badge{margin-left:auto;font-family:'Barlow Condensed';letter-spacing:.12em;text-transform:uppercase;font-size:10px;color:#f1a0a7;border:1px solid rgba(230,57,70,.5);border-radius:999px;padding:2px 9px;}
+.shame-desc{color:#e7c9cc;font-size:13px;margin:8px 0;line-height:1.5;}
+.react-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+.react-btn{background:#1c1416;border:1px solid #3a2629;border-radius:999px;padding:4px 10px;font-size:15px;cursor:pointer;transition:transform .1s;}
+.react-btn:hover{transform:scale(1.15);}
+.react-tally{background:rgba(230,57,70,.14);border:1px solid rgba(230,57,70,.45);border-radius:999px;padding:3px 9px;font-size:13px;}
+.shame-comments{margin-top:10px;border-top:1px dashed rgba(230,57,70,.25);padding-top:8px;}
+.shame-comment{font-size:13px;padding:3px 0;}
+.shame-comment b{color:var(--gold-bright);}
+.comment-box{display:flex;gap:6px;margin-top:8px;}
+.comment-box input{flex:1;}
+.more-bg{position:fixed;inset:0;z-index:60;background:rgba(5,6,7,.6);backdrop-filter:blur(3px);animation:payIn .2s ease;}
+.more-sheet{position:fixed;bottom:0;left:0;right:0;z-index:61;background:linear-gradient(180deg,#141417,#0c0c0e);border-top:1px solid rgba(201,168,76,.35);border-radius:18px 18px 0 0;padding:10px 16px calc(18px + env(safe-area-inset-bottom));animation:sheetUp .28s cubic-bezier(.2,1.3,.4,1);}
+@keyframes sheetUp{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
+.more-grip{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.25);margin:2px auto 12px;}
+.more-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:#0e0e11;border:1px solid #232326;border-radius:12px;color:var(--muted);font-family:'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;font-size:13px;cursor:pointer;}
+.more-item.on{border-color:var(--gold);color:var(--gold-bright);}
+.more-ic{font-size:24px;}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
 `;
 
@@ -350,7 +400,7 @@ const HYPE = ["LET'S GO!", "HERE WE GO!", "LOCKED IN!", "BET PLACED!", "STAMPED!
 
 const DEFAULT_GAME = {
   config: { groupName: "PRIVATE LEAGUE", buyIn: 20, adminPass: "wc2026", final8Open: false, currency: "S$" },
-  players: [], teams: [], matches: [], picks: {}, underdog: {}, final8: {},
+  players: [], teams: [], matches: [], picks: {}, underdog: {}, final8: {}, shame: {},
 };
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -636,6 +686,114 @@ const Sticker = ({ children, style }) => {
 
 /* ════════════════ PAGES ════════════════ */
 
+function LiveScoresPage({ game, onRefresh }) {
+  const [standings, setStandings] = useState(null);
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+  const key = game.config.apiKey;
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const lastStandRef = useRef(0);
+
+  const loadStandings = useCallback(async (force = false) => {
+    if (!key) return;
+    const now = Date.now();
+    if (!force && now - lastStandRef.current < 120000) return;
+    lastStandRef.current = now;
+    setLoading(true); setErr("");
+    try {
+      const r = await fetch(`/api/fixtures?key=${encodeURIComponent(key)}&type=standings`);
+      const pl = await r.json().catch(() => ({}));
+      if (!r.ok || pl.error) setErr(pl.error || `API error (${r.status}).`);
+      else setStandings(pl.standings || []);
+    } catch (e) { setErr("Couldn't reach the scores service."); }
+    setLoading(false);
+  }, [key]);
+  useEffect(() => { loadStandings(false); const t = setInterval(() => loadStandings(false), 130000); return () => clearInterval(t); }, [loadStandings]);
+
+  useTick(true);
+  const now = Date.now();
+  const live = game.matches.filter((m) => m.live && m.status !== "void");
+  const groups = (standings || []).filter((st) => st.type === "TOTAL" && st.stage === "GROUP_STAGE");
+  const KO_ORDER = ["R32", "R16", "QF", "SF", "FINAL"];
+  const ko = KO_ORDER.map((st) => [st, game.matches.filter((m) => m.stage === st && m.status !== "void")
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff))]).filter(([, ms]) => ms.length > 0);
+
+  return (
+    <div className="page">
+      {!key && <div className="banner">Add your football-data.org API key in Admin to power live scores and tables.</div>}
+      <div className="h-sec">Live now</div>
+      {live.length === 0 ? <div className="panel muted">No matches in play right now. The pitch rests.</div> :
+        live.map((m) => {
+          const a = tById[m.teamA], b = tById[m.teamB];
+          return (
+            <div className="match live-card" key={m.id}>
+              <div className="meta"><span>{STAGE_LABEL[m.stage]}</span><span className="live"><span className="dot" />LIVE</span></div>
+              <div className="face">
+                <div className="team"><span className="fl">{a?.flag}</span><span className="nm">{a?.name}</span></div>
+                <div className="score">{m.scoreA ?? 0} – {m.scoreB ?? 0}</div>
+                <div className="team"><span className="fl">{b?.flag}</span><span className="nm">{b?.name}</span></div>
+              </div>
+            </div>
+          );
+        })}
+
+      <div className="h-sec">Group tables</div>
+      {loading && !standings && <div className="lockline">Pulling the official tables…</div>}
+      {err && <div className="panel" style={{ color: "var(--danger)" }}>{err}</div>}
+      {standings && groups.length === 0 && !err && <div className="panel muted">Tables appear here once the API publishes them.</div>}
+      <div className="grid2">
+        {groups.map((g) => (
+          <div className="panel" style={{ padding: "8px 4px" }} key={g.group}>
+            <div className="gt-title">{(g.group || "").replace("GROUP_", "Group ")}</div>
+            <div className="gt-head"><span>#</span><span>Team</span><span className="num">P</span><span className="num">W</span><span className="num">D</span><span className="num">L</span><span className="num">GD</span><span className="num">Pts</span></div>
+            {(g.table || []).map((row) => (
+              <div className={`gt-row ${row.position <= 2 ? "q" : ""}`} key={row.team?.id || row.position}>
+                <span className="pos">{row.position}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{flagFor(row.team?.name)} {row.team?.name}</span>
+                <span className="num">{row.playedGames}</span>
+                <span className="num">{row.won}</span>
+                <span className="num">{row.draw}</span>
+                <span className="num">{row.lost}</span>
+                <span className="num">{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</span>
+                <span className="pts">{row.points}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {groups.length > 0 && <div className="note">Top two in each group (highlighted) plus the best third-placed teams advance.</div>}
+
+      <div className="h-sec">Knockout road</div>
+      {ko.length === 0 && <div className="panel muted">Knockout fixtures land here once the group stage decides them.</div>}
+      {ko.map(([st, ms]) => (
+        <div key={st}>
+          <div className="gt-title" style={{ padding: "8px 0 4px" }}>{STAGE_LABEL[st]}</div>
+          {ms.map((m) => {
+            const a = tById[m.teamA], b = tById[m.teamB];
+            const isLive = m.live;
+            return (
+              <div className={`match ${isLive ? "live-card" : ""}`} key={m.id}>
+                <div className="meta"><span>{STAGE_LABEL[m.stage]}</span>
+                  {isLive ? <span className="live"><span className="dot" />LIVE</span>
+                    : m.status === "finished" ? <span>FULL TIME</span> : <span>{fmtTime(m.kickoff)}</span>}
+                </div>
+                <div className="face">
+                  <div className="team"><span className="fl">{a?.flag}</span><span className="nm">{a?.name}</span></div>
+                  {(m.status === "finished" || (isLive && m.scoreA != null)) ? <div className="score">{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
+                  <div className="team"><span className="fl">{b?.flag}</span><span className="nm">{b?.name}</span></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      <div style={{ textAlign: "center", marginTop: 14 }}>
+        <button className="btn btn-ghost" onClick={() => { loadStandings(true); onRefresh && onRefresh(); }}>Refresh scores & tables</button>
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ game, me, go, fxStatus, onRefresh }) {
   const rows = computeStandings(game).sort((a, b) => b.total - a.total);
   const now = Date.now();
@@ -701,7 +859,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
           <Sticker key={r.p.id}>
             <div className="jersey">#{String(i + 1).padStart(2, "0")}</div>
             <div style={{ fontSize: 30 }}>{medals[i]} {r.p.avatar}</div>
-            <div className="bebas" style={{ fontSize: 22, marginTop: 4 }}>{r.p.name}</div>
+            <div className="bebas pname" style={{ fontSize: 22, marginTop: 4 }} onClick={() => openProfile(r.p.id)}>{r.p.name}</div>
             <div className="barlow muted" style={{ fontSize: 12 }}>{r.p.country || "—"}</div>
             <div className="bebas gold jackpot" style={{ fontSize: 28, marginTop: 6 }}><CountUp value={r.total} /> PTS{streakFor(game, r.p.id) >= 2 ? ` 🔥${streakFor(game, r.p.id)}` : ""}</div>
           </Sticker>
@@ -803,7 +961,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate }) {
                   const lab = pk ? (pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : "Draw") : "—";
                   const pts = pickPoints(m, pk);
                   const cls = m.status === "finished" && pk ? (pk.pred === res ? "chip ok" : "chip bad") : "chip";
-                  return <span key={p.id} className={cls}>{p.avatar} {p.name}: {lab}
+                  return <span key={p.id} className={cls} style={{ cursor: "pointer" }} onClick={() => openProfile(p.id)}>{p.avatar} {p.name}: {lab}
                     {m.status === "finished" ? ` · +${pts}` : ""}</span>;
                 })}
               </div>
@@ -884,7 +1042,7 @@ function UnderdogPage({ game, me, mutate }) {
       {order.map((r, i) => (
         <div key={r.p.id} className="lb-row" style={{ gridTemplateColumns: "34px 1fr 90px", cursor: "default" }}>
           <span className="rank">{i + 1}</span>
-          <span>{r.p.avatar} {r.p.name} <span className="muted" style={{ fontSize: 12 }}>{r.udTeam ? `· ${r.udTeam.flag} ${r.udTeam.name}` : "· no pick"}</span></span>
+          <span><span className="pname" onClick={() => openProfile(r.p.id)}>{r.p.avatar} {r.p.name}</span> <span className="muted" style={{ fontSize: 12 }}>{r.udTeam ? `· ${r.udTeam.flag} ${r.udTeam.name}` : "· no pick"}</span></span>
           <span className="tot">{r.udGroupPts} pts</span>
         </div>
       ))}
@@ -927,7 +1085,7 @@ function Final8Page({ game, me, mutate }) {
         return (
           <div key={r.p.id} className="lb-row" style={{ gridTemplateColumns: "34px 1fr auto", cursor: "default", borderColor: isNext ? "var(--gold)" : undefined }}>
             <span className="rank">{i + 1}</span>
-            <span>{r.p.avatar} {r.p.name} <span className="muted" style={{ fontSize: 12 }}>({r.udGroupPts} ud pts)</span></span>
+            <span><span className="pname" onClick={() => openProfile(r.p.id)}>{r.p.avatar} {r.p.name}</span> <span className="muted" style={{ fontSize: 12 }}>({r.udGroupPts} ud pts)</span></span>
             {team ? <span className="bebas gold" style={{ fontSize: 18 }}>{team.flag} {team.name} · {F8_VALUE[team.furthest] || 0} pts</span>
               : isNext ? <span className="stamp" style={{ transform: "none", borderColor: "var(--gold)", color: "var(--gold-bright)" }}>ON THE CLOCK</span>
               : <span className="muted barlow" style={{ fontSize: 12 }}>waiting</span>}
@@ -981,7 +1139,7 @@ function LeaderboardPage({ game }) {
         <div key={r.p.id}>
           <div className={`lb-row ${i === 0 && tab === "overall" ? "top1" : ""}`} style={{ animationDelay: `${i * 60}ms` }} onClick={() => setOpenRow(openRow === r.p.id ? null : r.p.id)}>
             <span className="rank">{i + 1}</span>
-            <span>{r.p.avatar} {r.p.name} <span style={{ fontSize: 13 }}>{contention(r)}</span>{streakFor(game, r.p.id) >= 2 && <span style={{ fontSize: 12 }}> 🔥{streakFor(game, r.p.id)}</span>}</span>
+            <span><span className="pname" onClick={(e) => { e.stopPropagation(); openProfile(r.p.id); }}>{r.p.avatar} {r.p.name}</span> <span style={{ fontSize: 13 }}>{contention(r)}</span>{streakFor(game, r.p.id) >= 2 && <span style={{ fontSize: 12 }}> 🔥{streakFor(game, r.p.id)}</span>}</span>
             <span className="num">{r.daily}</span>
             <span className="num">{r.udPts}</span>
             <span className="num">{r.f8Pts}</span>
@@ -1225,6 +1383,224 @@ function AdminResultRow({ m, a, b, onSave, onVoid, onDelete }) {
   );
 }
 
+function playerStats(game, pid) {
+  const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[pid]);
+  let correct = 0;
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const bigWins = [];
+  for (const m of fin) {
+    const pk = game.picks[m.id][pid];
+    const pts = pickPoints(m, pk);
+    if (pts > 0) { correct++; bigWins.push({ m, pts }); }
+  }
+  bigWins.sort((a, b) => b.pts - a.pts);
+  const row = computeStandings(game).find((r) => r.p.id === pid);
+  return {
+    total: row?.total || 0, daily: row?.daily || 0, udPts: row?.up || 0, f8Pts: row?.fp || 0,
+    played: fin.length, correct, accuracy: fin.length ? Math.round((correct / fin.length) * 100) : 0,
+    streak: streakFor(game, pid), udTeam: row?.udT, f8Team: row?.f8T, tById,
+    best: bigWins.slice(0, 3).map((bw) => `${bw.tById?.[bw.m.teamA]?.name || tById[bw.m.teamA]?.name} ${bw.m.scoreA}–${bw.m.scoreB} ${tById[bw.m.teamB]?.name} · +${bw.pts}`),
+  };
+}
+
+const CARD_COLORS = ["#c9a84c", "#4fc3f7", "#e63946", "#2d6e47", "#9b59b6", "#e67e22", "#ffffff", "#ff5fa2"];
+
+function ProfileModal({ game, pid, meId, onClose, mutate }) {
+  const p = game.players.find((x) => x.id === pid);
+  const [editing, setEditing] = useState(false);
+  if (!p) return null;
+  const st = playerStats(game, pid);
+  const isMe = pid === meId;
+  const accent = p.color || "#c9a84c";
+  const rank = computeStandings(game).sort((a, b) => b.total - a.total).findIndex((r) => r.p.id === pid) + 1;
+
+  const saveField = (field, val) => mutate((g) => { const gp = g.players.find((x) => x.id === pid); if (gp) gp[field] = val; });
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-hero" style={{ background: `linear-gradient(180deg, ${accent}22, transparent)` }}>
+          <button className="close" onClick={onClose} aria-label="close">×</button>
+          <div className="modal-avatar">{p.avatar}</div>
+          <div className="modal-name" style={{ color: accent }}>{p.name}</div>
+          <div className="modal-sub">{p.country ? `Backing ${p.country}` : "World Cup 2026"} · Rank #{rank || "—"}</div>
+          {p.tagline && <div className="modal-tag">“{p.tagline}”</div>}
+        </div>
+
+        <div className="stat-grid">
+          <div className="stat-box"><div className="v">{st.total}</div><div className="l">Total pts</div></div>
+          <div className="stat-box"><div className="v">{st.accuracy}%</div><div className="l">Accuracy</div></div>
+          <div className="stat-box"><div className="v">{st.streak}🔥</div><div className="l">Streak</div></div>
+          <div className="stat-box"><div className="v">{st.correct}/{st.played}</div><div className="l">Correct picks</div></div>
+          <div className="stat-box"><div className="v">{st.udPts}</div><div className="l">Underdog pts</div></div>
+          <div className="stat-box"><div className="v">{st.f8Pts}</div><div className="l">Final 8 pts</div></div>
+        </div>
+
+        <div style={{ padding: "0 18px 10px" }}>
+          <div className="modal-sub" style={{ marginBottom: 4 }}>Picks</div>
+          <div className="note" style={{ marginTop: 0 }}>
+            Underdog: {st.udTeam ? `${st.udTeam.flag} ${st.udTeam.name}` : "—"} · Final 8: {st.f8Team ? `${st.f8Team.flag} ${st.f8Team.name}` : "—"}
+          </div>
+          {st.best.length > 0 && <>
+            <div className="modal-sub" style={{ margin: "10px 0 4px" }}>Best calls</div>
+            {st.best.map((b, i) => <div key={i} className="payout-win" style={{ textAlign: "left" }}>✓ {b}</div>)}
+          </>}
+        </div>
+
+        {isMe && (
+          <div style={{ borderTop: "1px solid #232326", paddingTop: 6 }}>
+            {!editing ? (
+              <div style={{ padding: "6px 18px 18px" }}>
+                <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => setEditing(true)}>✎ Customise my profile</button>
+              </div>
+            ) : (
+              <div className="edit-row" style={{ paddingBottom: 18 }}>
+                <label>Avatar emoji</label>
+                <input defaultValue={p.avatar} maxLength={4} onBlur={(e) => saveField("avatar", e.target.value || "⚽")} />
+                <label>Backing (nation / flavour)</label>
+                <input defaultValue={p.country || ""} onBlur={(e) => saveField("country", e.target.value)} />
+                <label>Tagline / trash talk</label>
+                <input defaultValue={p.tagline || ""} maxLength={80} placeholder="say something..." onBlur={(e) => saveField("tagline", e.target.value)} />
+                <label>Card colour</label>
+                <div className="swatches">
+                  {CARD_COLORS.map((c) => <span key={c} className={`swatch ${(p.color || "#c9a84c") === c ? "on" : ""}`} style={{ background: c }} onClick={() => saveField("color", c)} />)}
+                </div>
+                <button className="btn btn-gold" style={{ width: "100%", marginTop: 12 }} onClick={() => setEditing(false)}>Done</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Bridge: lets any page open a profile modal without threading props everywhere.
+let _openProfile = () => {};
+function openProfile(pid) { _openProfile(pid); }
+
+// Computes who deserves shaming today, with reasons.
+function computeShame(game) {
+  const rows = computeStandings(game).sort((a, b) => b.total - a.total);
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const items = [];
+  // Last place
+  if (rows.length > 1 && rows[rows.length - 1].played !== undefined) {
+    const last = rows[rows.length - 1];
+    items.push({ id: "last-" + last.p.id, pid: last.p.id, badge: "Wooden spoon", desc: `Dead last on ${last.total} pts. Holding the wooden spoon for all to see.` });
+  }
+  // Cold streaks: most recent finished picks all wrong
+  for (const r of rows) {
+    const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id])
+      .sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
+    let cold = 0;
+    for (const m of fin) { if (game.picks[m.id][r.p.id].pred !== matchResult(m)) cold++; else break; }
+    if (cold >= 2) items.push({ id: "cold-" + r.p.id, pid: r.p.id, badge: `${cold} wrong in a row`, desc: `On a freezing run — ${cold} busted picks back to back. Someone check the pulse.` });
+  }
+  // Backed a team that got battered (lost by 3+) — most recent
+  for (const r of rows) {
+    const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id])
+      .sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
+    for (const m of fin.slice(0, 4)) {
+      const pk = game.picks[m.id][r.p.id];
+      const res = matchResult(m);
+      if (pk.pred !== res && pk.pred !== "D") {
+        const margin = Math.abs(m.scoreA - m.scoreB);
+        const backed = pk.pred === "A" ? tById[m.teamA] : tById[m.teamB];
+        if (margin >= 3 && backed) { items.push({ id: "battered-" + m.id + "-" + r.p.id, pid: r.p.id, badge: "Backed a flop", desc: `Put faith in ${backed.flag} ${backed.name}, who lost ${m.scoreA}–${m.scoreB}. Brutal.` }); break; }
+      }
+    }
+  }
+  // Underdog eliminated in groups
+  for (const r of rows) {
+    if (r.udTeam && r.udTeam.furthest === "out") items.push({ id: "udout-" + r.p.id, pid: r.p.id, badge: "Underdog dumped out", desc: `Their underdog ${r.udTeam.flag} ${r.udTeam.name} crashed out in the groups. Bold pick, zero reward.` });
+  }
+  // de-dup by id, cap
+  const seen = new Set();
+  return items.filter((i) => !seen.has(i.id) && seen.add(i.id)).slice(0, 12);
+}
+
+const SHAME_EMOJIS = ["😂", "💀", "🤡", "🪦", "🧊", "👎", "🫵", "🤣"];
+
+function ShamePage({ game, me, mutate }) {
+  const items = computeShame(game);
+  const pById = Object.fromEntries(game.players.map((p) => [p.id, p]));
+  const [drafts, setDrafts] = useState({});
+
+  const react = (itemId, emoji) => {
+    if (!me) return;
+    mutate((g) => {
+      if (!g.shame) g.shame = {};
+      if (!g.shame[itemId]) g.shame[itemId] = { reactions: {}, comments: [] };
+      const rx = g.shame[itemId].reactions;
+      if (!rx[emoji]) rx[emoji] = [];
+      const i = rx[emoji].indexOf(me.id);
+      if (i >= 0) rx[emoji].splice(i, 1); else rx[emoji].push(me.id); // toggle
+    });
+  };
+  const comment = (itemId) => {
+    const text = (drafts[itemId] || "").trim();
+    if (!text || !me) return;
+    mutate((g) => {
+      if (!g.shame) g.shame = {};
+      if (!g.shame[itemId]) g.shame[itemId] = { reactions: {}, comments: [] };
+      g.shame[itemId].comments.push({ by: me.id, name: me.name, text, at: Date.now() });
+    });
+    setDrafts((d) => ({ ...d, [itemId]: "" }));
+  };
+
+  return (
+    <div className="page">
+      <div className="hero" style={{ padding: "26px 16px" }}>
+        <h1 style={{ fontSize: "clamp(34px,8vw,60px)" }}>THE SHAME WALL</h1>
+        <div className="sub">Where bad picks come to die 💀</div>
+      </div>
+      {!me && <div className="banner" style={{ marginTop: 14 }}>Pick your player up top to join the pile-on.</div>}
+      {items.length === 0 ? (
+        <div className="panel muted" style={{ marginTop: 16 }}>Nobody's embarrassed themselves yet. Give it time — the group stage is long.</div>
+      ) : items.map((it) => {
+        const p = pById[it.pid];
+        if (!p) return null;
+        const sh = game.shame?.[it.id] || { reactions: {}, comments: [] };
+        return (
+          <div className="shame-card" key={it.id}>
+            <div className="who">
+              <span className="av">{p.avatar}</span>
+              <span className="nm pname" onClick={() => openProfile(p.id)}>{p.name}</span>
+              <span className="shame-badge">{it.badge}</span>
+            </div>
+            <div className="shame-desc">{it.desc}</div>
+            <div className="react-row">
+              {SHAME_EMOJIS.map((e) => {
+                const n = sh.reactions?.[e]?.length || 0;
+                return <span key={e}>
+                  {n > 0
+                    ? <span className="react-tally" onClick={() => react(it.id, e)} style={{ cursor: "pointer" }}>{e} {n}</span>
+                    : <button className="react-btn" onClick={() => react(it.id, e)} disabled={!me}>{e}</button>}
+                </span>;
+              })}
+            </div>
+            {(sh.comments?.length > 0) && (
+              <div className="shame-comments">
+                {sh.comments.map((c, i) => <div key={i} className="shame-comment"><b className="pname" onClick={() => openProfile(c.by)}>{c.name}</b>: {c.text}</div>)}
+              </div>
+            )}
+            {me && (
+              <div className="comment-box">
+                <input placeholder="add some banter..." maxLength={140} value={drafts[it.id] || ""}
+                  onChange={(e) => setDrafts((d) => ({ ...d, [it.id]: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === "Enter") comment(it.id); }} />
+                <button className="btn btn-gold" onClick={() => comment(it.id)}>Post</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div className="note">Shame is assigned automatically from results — last place, cold streaks, backing teams that got battered, and underdogs that flopped. All in good fun. Mostly.</div>
+    </div>
+  );
+}
+
 /* ════════════════ APP SHELL ════════════════ */
 export default function App() {
   const [game, setGame] = useState(null);
@@ -1301,7 +1677,7 @@ export default function App() {
 
   // keep live scores fresh: poll every ~minute while watching Home or Picks
   useEffect(() => {
-    if (tab !== "home" && tab !== "picks") return;
+    if (tab !== "home" && tab !== "picks" && tab !== "scores") return;
     const t = setInterval(() => pullFixtures(false), 65000);
     return () => clearInterval(t);
   }, [tab, pullFixtures]);
@@ -1324,6 +1700,9 @@ export default function App() {
 
   // THE PAYOUT: when new results have landed since you last looked and your
   // picks came in — take over the screen: points, the wins, confetti, haptics.
+  const [profileId, setProfileId] = useState(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => { _openProfile = (pid) => setProfileId(pid); return () => { _openProfile = () => {}; }; }, []);
   const [payout, setPayout] = useState(null);
   useEffect(() => {
     if (!game || !meId) return;
@@ -1365,7 +1744,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v17</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v21</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -1388,10 +1767,15 @@ export default function App() {
     }
   };
 
-  const TABS = [
-    ["home", "🏟️", "Home"], ["picks", "✅", "Picks"], ["underdog", "🐉", "Underdog"],
-    ["final8", "🎯", "Final 8"], ["board", "🏆", "Table"], ["prizes", "💰", "Prizes"], ["admin", "🛠️", "Admin"],
+  const PRIMARY = [
+    ["home", "🏟️", "Home"], ["picks", "✅", "Picks"], ["scores", "📺", "Scores"],
+    ["board", "🏆", "Table"], ["shame", "💀", "Shame"],
   ];
+  const MORE = [
+    ["underdog", "🐉", "Underdog"], ["final8", "🎯", "Final 8"],
+    ["prizes", "💰", "Prizes"], ["admin", "🛠️", "Admin"],
+  ];
+  const inMore = MORE.some(([k]) => k === tab);
 
   return (
     <div className="wc-app">
@@ -1408,6 +1792,7 @@ export default function App() {
         </div>
       )}
       <Confetti burst={burst} colors={burstColors} />
+      {profileId && <ProfileModal game={game} pid={profileId} meId={meId} onClose={() => setProfileId(null)} mutate={mutate} />}
       {pickFlash && (
         <div className="pickflash" aria-hidden>
           <div className="pf-inner">
@@ -1423,7 +1808,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v17</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v21</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
@@ -1435,18 +1820,39 @@ export default function App() {
 
       {tab === "home" && <HomePage game={game} me={me} go={setTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
       {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} />}
+      {tab === "scores" && <LiveScoresPage game={game} onRefresh={() => pullFixtures(true)} />}
       {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
       {tab === "final8" && <Final8Page game={game} me={me} mutate={mutate} />}
       {tab === "board" && <LeaderboardPage game={game} />}
+      {tab === "shame" && <ShamePage game={game} me={me} mutate={mutate} />}
       {tab === "prizes" && <PrizesPage game={game} />}
       {tab === "admin" && <AdminPage game={game} mutate={mutate} isAdmin={isAdmin} setIsAdmin={setIsAdmin} fireConfetti={fireConfetti} onRefresh={() => pullFixtures(true)} fxStatus={fxStatus} />}
 
+      {moreOpen && (
+        <div className="more-bg" onClick={() => setMoreOpen(false)}>
+          <div className="more-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="more-grip" />
+            <div className="more-grid">
+              {MORE.map(([k, ic, lab]) => (
+                <button key={k} className={`more-item ${tab === k ? "on" : ""}`}
+                  onClick={() => { setTab(k); setMoreOpen(false); }}>
+                  <span className="more-ic">{ic}</span>{lab}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="tabs">
-        {TABS.map(([k, ic, lab]) => (
-          <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => { setTab(k); if (k === "home" || k === "picks") pullFixtures(false); }}>
+        {PRIMARY.map(([k, ic, lab]) => (
+          <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => { setTab(k); setMoreOpen(false); if (k === "home" || k === "picks" || k === "scores") pullFixtures(false); }}>
             <span className="ic">{ic}</span>{lab}
           </button>
         ))}
+        <button className={`tab ${inMore ? "on" : ""}`} onClick={() => setMoreOpen((o) => !o)}>
+          <span className="ic">⋯</span>More
+        </button>
       </div>
     </div>
   );
