@@ -551,6 +551,32 @@ function mergeFixtures(g, apiMatches) {
   }
 }
 
+/* ── push notifications ─────────────────────────────────────── */
+const VAPID_PUBLIC = "BIILJr7hvUmqFCgkbG1dFXEbLrZ5Z5xtf5k4DE_FTJ2Mm39GU6uNJ2zEPl8D-aJwB7KxLLqrzG4zdyNAydET8N8";
+function urlB64ToUint8(base64) {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+async function enablePush(playerId, playerName) {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return { ok: false, msg: "This device doesn't support notifications." };
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") return { ok: false, msg: "Notifications were blocked. Enable them in your phone settings." };
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(VAPID_PUBLIC) });
+    }
+    await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sub, playerId, playerName }) });
+    return { ok: true, msg: "Notifications on! You'll get pick reminders and results." };
+  } catch (e) {
+    return { ok: false, msg: "Couldn't turn on notifications: " + (e?.message || e) };
+  }
+}
+
 /* ── scoring engine ─────────────────────────────────────────── */
 function matchResult(m) {
   if (m.status !== "finished") return null;
@@ -2085,7 +2111,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v30</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v31</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -2153,12 +2179,14 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v30</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v31</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
           {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
         </select>
+        {me && <button className="who" style={{ padding: "6px 9px" }} title="Enable notifications"
+          onClick={async () => { const r = await enablePush(me.id, me.name); alert(r.msg); }}>🔔</button>}
       </nav>
       <Ticker game={game} />
       </div>
