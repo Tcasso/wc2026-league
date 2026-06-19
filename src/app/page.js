@@ -1928,6 +1928,20 @@ export default function App() {
   const [tab, setTab] = useState("home");
   const [meId, setMeIdRaw] = useState("");
   const [isAdmin, setIsAdminRaw] = useState(false);
+  const [installHint, setInstallHint] = useState(false);
+  // Register the service worker (enables install + push) and show a one-time
+  // "add to home screen" hint on iPhones that haven't installed yet.
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+    try {
+      const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const standalone = window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
+      const dismissed = localStorage.getItem("wc26-install-hint") === "1";
+      if (isiOS && !standalone && !dismissed) setInstallHint(true);
+    } catch (e) {}
+  }, []);
   // Phones constantly discard and reload background tabs, which wipes
   // in-memory state — so identity and admin unlock are kept on-device.
   useEffect(() => {
@@ -2071,7 +2085,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v28</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v29</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -2104,6 +2118,13 @@ export default function App() {
     <div className="wc-app">
       <style>{CSS}</style>
       {errBanner}
+      {installHint && (
+        <div style={{ position: "fixed", bottom: 78, left: 12, right: 12, zIndex: 210, background: "linear-gradient(135deg,#2a2008,#1c3427)", border: "1px solid var(--gold)", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 0 24px rgba(240,201,58,.4)" }}>
+          <span style={{ fontSize: 22 }}>📲</span>
+          <span style={{ fontSize: 13, flex: 1 }}>Install the app: tap <b>Share</b> then <b>“Add to Home Screen”</b> for fullscreen + alerts.</span>
+          <button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => { setInstallHint(false); try { localStorage.setItem("wc26-install-hint", "1"); } catch (e) {} }}>Got it</button>
+        </div>
+      )}
       {payout && (
         <div className="payout" onClick={() => setPayout(null)}>
           <div className="payout-card">
@@ -2132,7 +2153,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v28</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v29</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
