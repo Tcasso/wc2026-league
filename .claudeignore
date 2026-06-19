@@ -1,0 +1,87 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+.vercel/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Package manager locks (Claude doesn't need these)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Environment files (never read these)
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor config
+.vscode/
+.idea/
+*.swp
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Supabase generated types (regenerate with CLI, don't edit)
+supabase/.branches/
+supabase/.temp/
+
+# Media / binary assets (Claude can't use these anyway)
+*.mp3
+*.wav
+*.ogg
+*.mp4
+*.mov
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.otf
+
+# Large data dumps
+*.csv
+*.sql
+data/dumps/
+data/backups/
+
+# Cache
+.cache/
+.turbo/
+.eslintcache
+
+# Phaser / game assets (if browser game project)
+# public/assets/audio/
+# public/assets/sprites/
+# Uncomment the above if your game has heavy asset folders
+
+# n8n exports (if automation project)
+# n8n-exports/
+# Uncomment if you export n8n workflows to the repo
