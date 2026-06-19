@@ -1,5 +1,5 @@
 // Replace your existing src/app/layout.js with this.
-// Adds PWA manifest, app icon, and iOS "add to home screen" support.
+// PWA manifest + dark fullscreen status bar (no white strip at top).
 
 export const metadata = {
   title: "World Cup 2026 League",
@@ -7,7 +7,7 @@ export const metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "WC2026",
   },
   icons: {
@@ -22,12 +22,13 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" style={{ background: "#0a0a0b" }}>
+      <body style={{ background: "#0a0a0b", margin: 0 }}>{children}</body>
     </html>
   );
 }

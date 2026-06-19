@@ -217,7 +217,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .toast{position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:200;background:linear-gradient(135deg,#2a2008,#1c3427);border:1px solid var(--gold-bright);color:var(--gold-bright);font-family:'Bebas Neue';font-size:22px;letter-spacing:.08em;padding:12px 28px;border-radius:12px;box-shadow:0 0 32px rgba(240,201,58,.55);animation:toastIn .4s ease, goldPulse 1.5s ease-in-out infinite;}
 @keyframes toastIn{0%{opacity:0;transform:translateX(-50%) translateY(-18px) scale(.9)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
 /* ── stadium atmosphere (always-on) ── */
-.topwrap{position:sticky;top:0;z-index:50;}
+.topwrap{position:sticky;top:0;z-index:50;padding-top:env(safe-area-inset-top);background:#0a0a0b;}
 .ticker{background:#050a06;border-bottom:1px solid rgba(201,168,76,.35);overflow:hidden;white-space:nowrap;}
 .ticker-track{display:inline-flex;animation:tickerScroll 35s linear infinite;}
 .ticker-track span{font-family:'Barlow Condensed';letter-spacing:.16em;font-size:13px;color:var(--gold-bright);padding:5px 0;text-transform:uppercase;}
@@ -2085,7 +2085,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v29</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v30</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -2153,7 +2153,7 @@ export default function App() {
       <div className="topwrap">
       <nav className="nav">
         <span className="nav-trophy" style={{ fontSize: 22 }}>🏆</span>
-        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v29</span></div>
+        <div className="nav-title bebas">WC2026 · <span className="grp">{game.config.groupName}</span> <span className="muted" style={{ fontSize: 11 }}>v30</span></div>
         <span className="pot-badge shine">💰 {game.config.currency}<CountUp value={pot} decimals={2} /></span>
         <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
           <option value="">Who are you?</option>
