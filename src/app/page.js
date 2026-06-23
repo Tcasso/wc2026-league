@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
-const APP_VERSION = "v62";
+const APP_VERSION = "v63";
 
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
@@ -3921,14 +3921,15 @@ function GlobeNav({ mini, activeTab, onSelect }) {
   const stateRef = useRef(null);
   if (!stateRef.current) {
     stateRef.current = {
-      rotY: 0, rotX: 0.12, velY: 0.05, velX: 0,
-      dragging: false, lx: 0, ly: 0, moved: 0, ldx: 0, ldy: 0,
-      coasting: false, snapping: false, snapHold: 0,
+      rotY: 0, rotX: 0.12,
+      dragging: false, lx: 0, ly: 0, moved: 0, downX: 0, downY: 0,
+      zoneIdx: 0, settled: true,
+      animating: false, animT0: 0, animDur: 500, animFY: 0, animTY: 0, animFX: 0, animTX: 0,
       morph: mini ? 1 : 0, morphV: 0,
       flashTab: null, flashUntil: 0, t: 0, trail: [],
       cx: 0, cy: 0, R: 1,
-      bgOffset: 0, bgVel: 0, lbgd: 0, bgManual: false, bgIdleBase: 0, bgIdleStart: 0,
-      lastTapTime: 0, lastTapTab: null, hintTab: null,
+      bgOffset: 0, bgVel: 0, bgManual: false, bgIdleBase: 0, bgIdleStart: 0,
+      hintTab: null,
     };
   }
   const [hintZone, setHintZone] = useState(null);
@@ -3970,12 +3971,19 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       return best;
     }
     function angDiff(a, b) { let d = ((b - a + Math.PI) % TAU) - Math.PI; if (d < -Math.PI) d += TAU; return d; }
+    // smoothly rotate the globe so zone i sits front-and-centre (500ms ease-in-out)
+    function animateToZone(i) {
+      const z = GLOBE_ZONES[i];
+      s.animFY = s.rotY; s.animTY = s.rotY + angDiff(s.rotY, -z.lon);
+      s.animFX = s.rotX; s.animTX = z.lat;
+      s.animT0 = performance.now(); s.animating = true; s.settled = false;
+    }
 
     const pt = (e) => ({ x: e.clientX, y: e.clientY });
     function onDown(e) {
       if (propsRef.current.mini) return;
-      s.dragging = true; s.moved = 0; s.coasting = false; s.snapping = false;
-      const p = pt(e); s.lx = p.x; s.ly = p.y; s.velY = 0; s.velX = 0;
+      s.dragging = true; s.moved = 0; s.animating = false;
+      const p = pt(e); s.lx = p.x; s.ly = p.y; s.downX = p.x; s.downY = p.y;
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     }
     function onMove(e) {
@@ -3985,34 +3993,35 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       if (!reduce) {
         s.rotY += dx * 0.008; s.rotX += dy * 0.004;
         s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
-        s.ldx = dx * 0.008; s.ldy = dy * 0.004;
-        s.bgOffset += dx * 0.15; s.lbgd = dx * 0.15;
+        s.bgOffset += dx * 0.15;
       }
     }
     function onUp() {
       if (!s.dragging) return;
       s.dragging = false;
-      // only select on a near-still release — a swipe with velocity coasts first
-      const vel = Math.abs(s.ldx) + Math.abs(s.ldy);
-      if (s.moved < 8 && vel <= 0.05) {
-        // pick whichever zone is closest to front-centre; the front-most one
-        // (the locked-on target) wins so a tap always enters something sensible
+      const totalDragX = s.lx - s.downX, totalDragY = s.ly - s.downY;
+      const isTap = Math.abs(totalDragX) < 15 && Math.abs(totalDragY) < 15;
+
+      // Tap anywhere on a settled globe enters the current zone. A direct hit on
+      // a zone dot still wins as before — the whole surface is now tappable too.
+      if (isTap && s.settled) {
         let best = null, bd = 1e9;
         for (const z of GLOBE_ZONES) { const p = proj(z.lat, z.lon); if (p.z <= 0) continue; const d = Math.hypot(p.x - s.cx, p.y - s.cy); if (d < bd) { bd = d; best = z; } }
-        const front = nearestZone(), fp = proj(front.lat, front.lon);
-        let pick = bd < 65 ? best : (fp.z > 0.55 ? front : null);
-        const tnow = performance.now();
-        const candidate = pick || front;
-        const dbl = (tnow - s.lastTapTime < 300) && s.lastTapTab === candidate.tab;
-        s.lastTapTime = tnow; s.lastTapTab = candidate.tab;
-        // double-tap on the same zone forces selection of the locked-on zone
-        if (!pick && dbl && fp.z > 0) pick = front;
-        if (pick) {
-          s.flashTab = pick.tab; s.flashUntil = s.t + 14;
-          try { navigator.vibrate && navigator.vibrate(dbl ? 20 : 12); } catch (err) {}
-          propsRef.current.onSelect(pick.tab);
-        }
-      } else if (!reduce) { s.velY = s.ldx; s.velX = s.ldy; s.coasting = true; s.bgVel = s.lbgd; }
+        if (best && bd < 65) s.zoneIdx = GLOBE_ZONES.indexOf(best);
+        const zone = GLOBE_ZONES[s.zoneIdx];
+        s.flashTab = zone.tab; s.flashUntil = s.t + 14;
+        try { navigator.vibrate && navigator.vibrate(12); } catch (err) {}
+        propsRef.current.onSelect(zone.tab);
+        return;
+      }
+
+      // A deliberate horizontal swipe steps exactly one zone; anything shorter
+      // settles back onto the current zone. No momentum — the globe never coasts.
+      if (Math.abs(totalDragX) > 35) {
+        if (totalDragX < 0) s.zoneIdx = (s.zoneIdx + 1) % GLOBE_ZONES.length;
+        else s.zoneIdx = (s.zoneIdx - 1 + GLOBE_ZONES.length) % GLOBE_ZONES.length;
+      }
+      animateToZone(s.zoneIdx);
     }
     canvas.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove);
@@ -4034,21 +4043,25 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       if (Math.abs(target - s.morph) < 0.001 && Math.abs(s.morphV) < 0.001) { s.morph = target; s.morphV = 0; }
       const m = Math.max(0, Math.min(1, s.morph));
 
-      // rotation: drag is live; otherwise auto-rotate / momentum / snap
+      // rotation: drag is live; otherwise animate-to-zone or idle auto-rotate.
+      // No momentum/coasting — the globe only moves on drag or a settling swipe.
       if (!s.dragging) {
-        if (reduce) { s.velY = 0; s.velX = 0; }
-        else if (isMini) { s.rotY += 0.004 + s.velY; s.rotX += s.velX; s.velY *= 0.9; s.velX *= 0.9; }
-        else if (s.snapping) {
-          const tg = nearestZone();
-          const dY = angDiff(s.rotY, -tg.lon), dX = tg.lat - s.rotX;
-          s.rotY += dY * 0.09; s.rotX += dX * 0.09;
-          if (Math.abs(dY) < 0.01 && Math.abs(dX) < 0.01) { s.snapping = false; s.snapHold = s.t + 150; }
-        } else {
-          s.rotY += s.velY; s.rotX += s.velX; s.velY *= 0.93; s.velX *= 0.93;
-          if (Math.abs(s.velY) < 0.0035 && Math.abs(s.velX) < 0.0035) {
-            if (s.coasting) { s.coasting = false; s.snapping = true; }
-            else if (s.t > s.snapHold) s.rotY += 0.003;
+        if (isMini) { if (!reduce) s.rotY += 0.004; }
+        else if (s.animating) {
+          if (reduce) { s.rotY = s.animTY; s.rotX = s.animTX; s.animating = false; s.settled = true; }
+          else {
+            const beforeY = s.rotY;
+            const p = Math.min(1, (now - s.animT0) / s.animDur);
+            const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+            s.rotY = s.animFY + (s.animTY - s.animFY) * e;
+            s.rotX = s.animFX + (s.animTX - s.animFX) * e;
+            s.bgOffset += (s.rotY - beforeY) * 18.75; // Earth texture follows the swipe
+            if (p >= 1) { s.animating = false; s.settled = true; }
           }
+        } else if (!reduce) {
+          // idle: drift slowly, keeping the current zone locked to whatever is centred
+          s.rotY += 0.003;
+          s.zoneIdx = GLOBE_ZONES.indexOf(nearestZone());
         }
         s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
       }
@@ -4080,7 +4093,7 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       // then re-phase and hand the spin back to CSS when the globe settles so
       // it resumes from the current position without jumping.
       if (sphereEl && !reduce) {
-        const manual = s.dragging || s.coasting || s.snapping;
+        const manual = s.dragging || s.animating;
         if (manual && !s.bgManual) {
           const elapsed = (now - s.bgIdleStart) / 1000;
           s.bgOffset = s.bgIdleBase + elapsed * 8; // globeSpin = 200% / 25s = 8%/s
@@ -4225,6 +4238,12 @@ export default function App() {
   const [burst, setBurst] = useState(false);
   const [pageErrors, setPageErrors] = useState(supabaseInitError ? [supabaseInitError] : []);
   const [fxStatus, setFxStatus] = useState({ loading: false, error: "" });
+  // Keep the welcome screen up for at least 2s even when data loads instantly.
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMinTimeElapsed(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
 
   // On-screen error reporter: any JS error shows in a red banner so it can
   // be read and reported without opening developer tools.
@@ -4400,7 +4419,8 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <WelcomeScreen errBanner={errBanner} />;
+  const showLoading = !game || !minTimeElapsed;
+  if (showLoading) return <WelcomeScreen errBanner={errBanner} />;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
