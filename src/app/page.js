@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
+const APP_VERSION = "v60";
+
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
    Daily picks · Underdog system · Final 8 draft · Live pot
@@ -530,6 +532,24 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .emoji-opt{font-size:24px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid transparent;cursor:pointer;background:#0a1810;transition:border-color .12s,background .12s;}
 .emoji-opt.on{border-color:var(--gold-bright);background:rgba(240,201,58,.15);}
 .emoji-opt:hover{border-color:rgba(201,168,76,.5);}
+/* welcome / loading screen */
+.welcome-screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#06140c;z-index:200;gap:0;overflow:hidden;}
+.welcome-canvas{position:absolute;top:0;left:0;width:100%;height:45%;pointer-events:none;z-index:0;}
+.welcome-stack{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.welcome-bottom{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;}
+.welcome-trophy{font-size:72px;animation:trophyWelcome 2.4s ease-in-out infinite;filter:drop-shadow(0 0 24px rgba(240,201,58,0.7));}
+@keyframes trophyWelcome{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.welcome-title{font-family:'Bebas Neue';font-size:clamp(36px,9vw,64px);letter-spacing:.04em;line-height:1;margin-top:6px;
+  background:linear-gradient(100deg,#fff 20%,var(--gold-bright) 45%,#fff 70%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:titleSheen 4s linear infinite;text-shadow:0 6px 30px rgba(0,0,0,.5);}
+.welcome-tagline{font-family:'Barlow Condensed';letter-spacing:.3em;font-size:13px;color:var(--muted);text-transform:uppercase;margin-top:8px;}
+.welcome-flags{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:14px;animation:flagPulse 3s ease-in-out infinite;}
+@keyframes flagPulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.welcome-bar-track{width:200px;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;margin-top:28px;overflow:hidden;position:relative;}
+.welcome-bar-fill{position:absolute;top:0;height:100%;width:80px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--gold-bright),transparent);animation:barSweep 1.8s linear infinite;}
+@keyframes barSweep{0%{left:-80px}100%{left:200px}}
+.welcome-msg{font-family:'Barlow Condensed';font-size:12px;letter-spacing:.15em;color:var(--muted);margin-top:10px;text-transform:uppercase;height:16px;}
+.ver-badge{position:fixed;bottom:8px;right:10px;font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;z-index:999;pointer-events:none;}
 `;
 
 /* ── scoring tables ─────────────────────────────────────────── */
@@ -1486,6 +1506,137 @@ function StadiumBg() {
     };
   }, []);
   return <canvas ref={cvRef} aria-hidden style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 0, pointerEvents: "none" }} />;
+}
+
+const WELCOME_MSGS = [
+  "Fetching the fixtures…",
+  "Checking the leaderboard…",
+  "Warming up the squad…",
+  "Almost at kickoff…",
+  "Getting the latest scores…",
+];
+
+function WelcomeScreen({ errBanner }) {
+  const canvasRef = useRef(null);
+  const [msgIdx, setMsgIdx] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setMsgIdx((i) => (i + 1) % WELCOME_MSGS.length), 2000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let W = 0, H = 0, raf = null;
+
+    const particles = Array.from({ length: 4 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: 1.8 + Math.random() * 1.6,
+      vy: 0.0009 + Math.random() * 0.0012,
+      drift: (Math.random() - 0.5) * 0.0006,
+      op: 0.35 + Math.random() * 0.35,
+    }));
+    const beams = [{ ox: 0.08, ph: 0.0 }, { ox: 0.92, ph: 2.4 }];
+
+    function resize() {
+      const rect = cv.getBoundingClientRect();
+      W = rect.width; H = rect.height;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (reduce) draw(0);
+    }
+
+    function drawPitch() {
+      const m = Math.min(W, H) * 0.07;
+      const x0 = m, y0 = m, w = W - m * 2, h = H - m * 2, x1 = x0 + w, y1 = y0 + h;
+      ctx.strokeStyle = "rgba(22,194,100,0.15)";
+      ctx.fillStyle = "rgba(22,194,100,0.15)";
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(x0, y0, w, h);
+      ctx.beginPath(); ctx.moveTo(x0, y0 + h / 2); ctx.lineTo(x1, y0 + h / 2); ctx.stroke();
+      const cr = Math.min(w, h) * 0.14;
+      ctx.beginPath(); ctx.arc(x0 + w / 2, y0 + h / 2, cr, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x0 + w / 2, y0 + h / 2, 2, 0, Math.PI * 2); ctx.fill();
+      const pbw = w * 0.46, pbh = h * 0.16;
+      ctx.strokeRect(x0 + (w - pbw) / 2, y0, pbw, pbh);
+      ctx.strokeRect(x0 + (w - pbw) / 2, y1 - pbh, pbw, pbh);
+      const gbw = w * 0.22, gbh = h * 0.07;
+      ctx.strokeRect(x0 + (w - gbw) / 2, y0, gbw, gbh);
+      ctx.strokeRect(x0 + (w - gbw) / 2, y1 - gbh, gbw, gbh);
+      const ca = Math.min(w, h) * 0.035;
+      ctx.beginPath(); ctx.arc(x0, y0, ca, 0, Math.PI / 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x1, y0, ca, Math.PI / 2, Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x1, y1, ca, Math.PI, Math.PI * 1.5); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x0, y1, ca, Math.PI * 1.5, Math.PI * 2); ctx.stroke();
+    }
+
+    function draw(now) {
+      ctx.clearRect(0, 0, W, H);
+      for (const b of beams) {
+        const ox = b.ox * W;
+        const tip = W * 0.5 + Math.sin(now * 0.0004 + b.ph) * W * 0.18;
+        const tipY = H * 1.05;
+        const g = ctx.createRadialGradient(ox, -H * 0.1, 0, tip, tipY, H * 1.1);
+        g.addColorStop(0, "rgba(255,255,255,0.06)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(ox, -H * 0.1);
+        ctx.lineTo(tip - W * 0.18, tipY);
+        ctx.lineTo(tip + W * 0.18, tipY);
+        ctx.closePath();
+        ctx.fill();
+      }
+      drawPitch();
+      for (const p of particles) {
+        p.y -= p.vy; p.x += p.drift;
+        if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); }
+        ctx.beginPath();
+        ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,214,51,${p.op})`;
+        ctx.shadowColor = "rgba(255,214,51,0.8)";
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      raf = requestAnimationFrame(draw);
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
+    if (!reduce) raf = requestAnimationFrame(draw);
+    return () => { window.removeEventListener("resize", resize); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+
+  return (
+    <div className="wc-app">
+      <style>{CSS + MASCOT_CSS}</style>
+      {errBanner}
+      <div className="welcome-screen">
+        <canvas ref={canvasRef} className="welcome-canvas" aria-hidden />
+        <div className="welcome-stack">
+          <div className="welcome-trophy">🏆</div>
+          <div className="welcome-title">WORLD CUP 2026</div>
+          <div className="welcome-tagline">THE LEAGUE IS LOADING</div>
+          <div className="welcome-flags">
+            {["Brazil", "France", "Argentina", "England", "Spain", "Germany"].map((n) => (
+              <Flag key={n} name={n} size={22} style={{ borderRadius: 4 }} />
+            ))}
+          </div>
+        </div>
+        <div className="welcome-bottom">
+          <div className="welcome-bar-track"><div className="welcome-bar-fill" /></div>
+          <div className="welcome-msg">{WELCOME_MSGS[msgIdx]}</div>
+        </div>
+      </div>
+      <span className="ver-badge">{APP_VERSION}</span>
+    </div>
+  );
 }
 
 const Sticker = ({ children, style }) => {
@@ -4270,7 +4421,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v59</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <WelcomeScreen errBanner={errBanner} />;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -4410,6 +4561,7 @@ export default function App() {
           )}
         </>
       )}
+      <span className="ver-badge">{APP_VERSION}</span>
     </div>
   );
 }
