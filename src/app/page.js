@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
-const APP_VERSION = "v63";
+const APP_VERSION = "v65";
 
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
@@ -137,6 +137,28 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
     rgba(0,0,0,0.7) 80%,
     rgba(0,0,0,0.92) 100%);
   pointer-events:none;}
+/* mini corner globe — the full-globe inset shadow uses fixed px sized for a
+   280px sphere; on the ~88px corner globe it swamps the Earth. Scale it down
+   so the spinning Earth fills the circle cleanly with no black edges. */
+.globe-sphere.is-mini{
+  box-shadow:
+    inset -5px -4px 12px rgba(0,0,0,0.55),
+    inset 3px 3px 10px rgba(255,255,255,0.06),
+    0 0 16px rgba(22,194,100,0.35),
+    0 4px 14px rgba(0,0,0,0.55);}
+/* the base sphere's edge vignette is sized for a 280px globe and swamps the
+   ~88px corner globe with a thick black ring — push it out to the rim so the
+   Earth image fills the mini circle cleanly with only a subtle edge fade. */
+.globe-sphere.is-mini::before{
+  background:radial-gradient(circle at 34% 30%,
+    rgba(255,255,255,0.15) 0%,
+    rgba(255,255,255,0.04) 30%,
+    transparent 62%);}
+.globe-sphere.is-mini::after{
+  background:radial-gradient(circle at 50% 50%,
+    transparent 72%,
+    rgba(0,0,0,0.3) 92%,
+    rgba(0,0,0,0.55) 100%);}
 .globe-atmosphere{position:fixed;left:50%;top:45%;
   transform:translate(-50%,-50%);
   width:calc(var(--globe-size,280px) * 1.22);
@@ -174,6 +196,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .globe-back-btn:active{transform:scale(.94);}
 
 .page{max-width:880px;margin:0 auto;padding:20px 16px;}
+.picks-page{touch-action:pan-y;}
 .h-sec{font-family:'Bebas Neue';font-size:26px;letter-spacing:.08em;margin:26px 0 12px;
   display:flex;align-items:center;gap:10px;
   text-shadow:1px 1px 0 rgba(0,0,0,.6),2px 2px 0 rgba(0,0,0,.4),3px 3px 0 rgba(0,0,0,.2),0 0 20px rgba(240,201,58,.3);}
@@ -2675,6 +2698,29 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
   const matches = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === selDate)
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
+  const picksDragStart = useRef(null);
+  const onPicksPointerDown = (e) => {
+    picksDragStart.current = e.clientX;
+  };
+  const onPicksPointerUp = (e) => {
+    if (picksDragStart.current === null) return;
+    const delta = e.clientX - picksDragStart.current;
+    picksDragStart.current = null;
+    if (Math.abs(delta) < 40) return; // too short, ignore
+    const days = [...new Set(
+      game.matches
+        .filter((m) => m.status !== "void")
+        .map((m) => new Date(m.kickoff).toDateString())
+    )].sort((a, b) => new Date(a) - new Date(b));
+    const currentIndex = days.indexOf(selDate);
+    if (currentIndex === -1) return;
+    if (delta < 0 && currentIndex < days.length - 1) {
+      setSelDate(days[currentIndex + 1]);
+    } else if (delta > 0 && currentIndex > 0) {
+      setSelDate(days[currentIndex - 1]);
+    }
+  };
+
   const setPick = (m, patch) => {
     const overridden = me && hasOverride(m.id, me.id);
     if (patch.pred && onPickCelebrate) {
@@ -2694,7 +2740,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
   };
 
   return (
-    <div className="page">
+    <div className="page picks-page" onPointerDown={onPicksPointerDown} onPointerUp={onPicksPointerUp}>
       <div className="h-sec">Daily picks</div>
       <DateStrip game={game} selected={selDate} onSelect={setSelDate} />
       {!me && <div className="banner">Select your player in the top bar to make picks.</div>}
@@ -4193,7 +4239,7 @@ function GlobeNav({ mini, activeTab, onSelect }) {
   return (
     <>
       <div ref={atmoRef} className="globe-atmosphere" aria-hidden style={{ zIndex: mini ? 55 : 18 }} />
-      <div ref={sphereRef} className="globe-sphere" aria-hidden style={{ zIndex: mini ? 56 : 19 }} />
+      <div ref={sphereRef} className={`globe-sphere${mini ? " is-mini" : ""}`} aria-hidden style={{ zIndex: mini ? 56 : 19 }} />
       <canvas ref={canvasRef} className={`globe-canvas${mini ? " is-mini" : ""}`} aria-label="globe navigation" />
       {!mini && hintZone && (
         <div className="globe-zone-hint">{hintZone.icon} {hintZone.label}</div>
