@@ -43,11 +43,7 @@ button,.tab,.btn,.who,.date-chip,.pickbtn,.lb-row,.match{transition:transform .1
 button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .wc-app{
   min-height:100vh; color:var(--white); font-family:'Inter',sans-serif;
-  background:
-    radial-gradient(ellipse 75% 55% at 0% 0%, rgba(255,214,51,.12), transparent 55%),
-    radial-gradient(ellipse 75% 55% at 100% 0%, rgba(22,194,100,.16), transparent 55%),
-    radial-gradient(ellipse 90% 60% at 50% 100%, rgba(13,122,63,.18), transparent 60%),
-    linear-gradient(180deg, #08190e, #05100a 60%, #06140c);
+  background:#06140c;
   padding-bottom:90px;
 }
 .bebas{font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;}
@@ -63,6 +59,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .hype-title{flex:1;text-align:center;font-family:'Bebas Neue';font-size:clamp(20px,6vw,30px);letter-spacing:.05em;line-height:1;
   background:linear-gradient(100deg,#fff 10%,var(--gold-bright) 30%,#4fc3f7 50%,var(--gold-bright) 70%,#fff 90%);
   background-size:220% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:1px 1px 0 rgba(0,0,0,.5),2px 2px 0 rgba(0,0,0,.3),3px 3px 0 rgba(0,0,0,.15);
   animation:hypeSheen 3s linear infinite, hypePulse 2.2s ease-in-out infinite;}
 @keyframes hypeSheen{0%{background-position:0% center}100%{background-position:220% center}}
 @keyframes hypePulse{0%,100%{filter:drop-shadow(0 0 6px rgba(240,201,58,.5))}50%{filter:drop-shadow(0 0 16px rgba(240,201,58,.9)) drop-shadow(0 0 26px rgba(79,195,247,.5))}}
@@ -101,15 +98,16 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
   display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 9px 6px;border-radius:13px;
   transition:color .22s ease, background .22s ease, transform .18s cubic-bezier(.2,.8,.3,1);}
 .tab .ic{font-size:20px;line-height:1;transition:transform .22s cubic-bezier(.2,1.5,.4,1);filter:grayscale(.35) opacity(.7);}
-.tab.on{color:var(--gold-bright);background:linear-gradient(180deg, rgba(240,201,58,.18), rgba(240,201,58,.05));box-shadow:inset 0 0 0 1px rgba(240,201,58,.3);}
+.tab.on{color:var(--gold-bright);background:linear-gradient(180deg,rgba(240,201,58,.22),rgba(240,201,58,.06));box-shadow:0 -3px 12px rgba(240,201,58,.4),inset 0 0 0 1px rgba(240,201,58,.35);transform:translateY(-2px);}
 .tab.on .ic{filter:none;transform:translateY(-1px) scale(1.12);}
-.tab.on::before{content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:22px;height:3px;border-radius:0 0 3px 3px;background:var(--gold-bright);box-shadow:0 0 10px rgba(240,201,58,.8);}
+.tab.on::before{content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:22px;height:3px;border-radius:0 0 3px 3px;background:var(--gold-bright);box-shadow:0 0 12px rgba(240,201,58,.95),0 0 24px rgba(240,201,58,.4);}
 .tab:active{transform:scale(.92);}
 .tab:focus-visible{outline:2px solid var(--sky);}
 
 .page{max-width:880px;margin:0 auto;padding:20px 16px;}
 .h-sec{font-family:'Bebas Neue';font-size:26px;letter-spacing:.08em;margin:26px 0 12px;
-  display:flex;align-items:center;gap:10px;}
+  display:flex;align-items:center;gap:10px;
+  text-shadow:1px 1px 0 rgba(0,0,0,.6),2px 2px 0 rgba(0,0,0,.4),3px 3px 0 rgba(0,0,0,.2),0 0 20px rgba(240,201,58,.3);}
 .h-sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(201,168,76,.5),transparent);}
 
 /* hero */
@@ -143,7 +141,10 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .hero .pot .amt{font-family:'Bebas Neue';font-size:34px;color:var(--gold-bright);}
 
 /* cards & panels */
-.panel{background:linear-gradient(180deg,rgba(18,58,35,.78),rgba(10,30,19,.82));backdrop-filter:blur(8px);border:1px solid rgba(22,194,100,.22);border-radius:16px;padding:16px;box-shadow:0 6px 22px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.06);}
+.panel{background:linear-gradient(160deg,rgba(18,58,35,.65),rgba(9,26,16,.75));backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
+@property --hue{syntax:'<angle>';initial-value:0deg;inherits:false;}
+@keyframes hueRotate{to{--hue:360deg}}
+.panel:hover{border-color:hsl(var(--hue),55%,65%);animation:hueRotate 8s linear;}
 .btn{cursor:pointer;border:none;border-radius:9px;font-family:'Barlow Condensed';text-transform:uppercase;
   letter-spacing:.12em;font-size:14px;padding:10px 18px;transition:transform .12s, box-shadow .12s;}
 .btn:active{transform:scale(.97);}
@@ -167,9 +168,10 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .team{display:flex;flex-direction:column;align-items:center;gap:4px;}
 .team .fl{font-size:34px;line-height:1;}
 .team .nm{font-family:'Bebas Neue';font-size:20px;letter-spacing:.06em;text-align:center;}
-.score{font-family:'Bebas Neue';font-size:40px;color:var(--gold-bright);background:#050a06;
+.score{font-family:'Bebas Neue';font-size:44px;color:var(--gold-bright);background:#050a06;
   border:1px solid rgba(201,168,76,.4);border-radius:10px;padding:2px 14px;min-width:96px;text-align:center;
-  text-shadow:0 0 12px rgba(240,201,58,.5);}
+  text-shadow:0 0 20px currentColor;}
+@keyframes scorePop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
 .vs{font-family:'Bebas Neue';font-size:22px;color:var(--muted);}
 .pickrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
 .pickbtn{padding:10px 4px;border-radius:9px;border:1px solid rgba(138,170,150,.3);background:var(--panel-mid);
@@ -324,8 +326,9 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 @keyframes selPop{0%{transform:scale(.9)}60%{transform:scale(1.07)}100%{transform:scale(1)}}
 .pickbtn.win{animation:winFlash 1.4s ease;}
 @keyframes winFlash{0%{box-shadow:0 0 0 rgba(63,174,108,0)}40%{box-shadow:0 0 26px rgba(63,174,108,.95)}100%{box-shadow:0 0 8px rgba(63,174,108,.35)}}
-.lb-row.top1{border-color:var(--gold);animation:goldBorder 2.2s ease-in-out infinite;}
-@keyframes goldBorder{0%,100%{box-shadow:0 0 6px rgba(240,201,58,.2)}50%{box-shadow:0 0 18px rgba(240,201,58,.55)}}
+.lb-row.top1{border-color:var(--gold);transform:translateY(-1px);position:relative;animation:goldBorder 2.2s ease-in-out infinite;}
+.lb-row.top1::after{content:"";position:absolute;inset:0;border-radius:10px;background:radial-gradient(ellipse 100% 100% at 50% 50%,rgba(240,201,58,.15),transparent 70%);pointer-events:none;}
+@keyframes goldBorder{0%,100%{box-shadow:0 2px 10px rgba(240,201,58,.2)}50%{box-shadow:0 4px 24px rgba(240,201,58,.55)}}
 .live .dot{box-shadow:0 0 12px rgba(230,57,70,.95);}
 .toast{position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:200;background:linear-gradient(135deg,#2a2008,#1c3427);border:1px solid var(--gold-bright);color:var(--gold-bright);font-family:'Bebas Neue';font-size:22px;letter-spacing:.08em;padding:12px 28px;border-radius:12px;box-shadow:0 0 32px rgba(240,201,58,.55);animation:toastIn .4s ease, goldPulse 1.5s ease-in-out infinite;}
 @keyframes toastIn{0%{opacity:0;transform:translateX(-50%) translateY(-18px) scale(.9)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
@@ -344,8 +347,10 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 @keyframes pageIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
 .hero h1{background:linear-gradient(100deg,#fff 25%,var(--gold-bright) 50%,#fff 75%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;animation:titleSheen 4.5s linear infinite;}
 @keyframes titleSheen{0%{background-position:200% center}100%{background-position:0% center}}
-.live-card{border-color:rgba(230,57,70,.55) !important;animation:liveGlow 1.6s ease-in-out infinite;}
-@keyframes liveGlow{0%,100%{box-shadow:0 0 6px rgba(230,57,70,.25)}50%{box-shadow:0 0 22px rgba(230,57,70,.6)}}
+.live-card{border-color:rgba(230,57,70,.55) !important;animation:liveGlow 2s ease-in-out infinite;}
+.live-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;border-radius:14px 14px 0 0;background:linear-gradient(90deg,transparent,rgba(230,57,70,.9),transparent);animation:liveTopBorder 2s ease-in-out infinite;pointer-events:none;}
+@keyframes liveTopBorder{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes liveGlow{0%,100%{box-shadow:0 0 0 rgba(230,57,70,0)}50%{box-shadow:0 0 28px rgba(230,57,70,.5)}}
 .lb-row{animation:rowIn .45s ease both;}
 @keyframes rowIn{0%{opacity:0;transform:translateX(-14px)}100%{opacity:1;transform:translateX(0)}}
 .tab.on .ic{display:inline-block;animation:icBounce .5s ease;}
@@ -798,8 +803,8 @@ const MASCOT_CSS = `
 .mascot-opt{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;background:#0e0e11;border:1px solid #232326;border-radius:10px;color:var(--muted);cursor:pointer;font-size:10px;font-family:'Barlow Condensed';text-transform:uppercase;letter-spacing:.05em;min-height:64px;justify-content:center;}
 .mascot-opt.on{border-color:var(--gold);box-shadow:0 0 10px rgba(240,201,58,.4);color:var(--gold-bright);}
 .mo-name{font-size:9px;}
-.page-anim{animation:pageIn .32s cubic-bezier(.2,.9,.3,1);}
-@keyframes pageIn{0%{opacity:0;transform:translateY(10px) scale(.99)}100%{opacity:1;transform:none}}
+.page-anim{animation:stadiumFlash 380ms cubic-bezier(.2,.9,.3,1);}
+@keyframes stadiumFlash{0%{opacity:0;transform:translateY(8px) scale(.97)}8%{opacity:.12}100%{opacity:1;transform:translateY(0) scale(1)}}
 .tab.on .ic{animation:tabPop .4s cubic-bezier(.2,1.6,.4,1);}
 @keyframes tabPop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
 .sound-btn{flex:0 0 auto;padding:6px 10px;font-size:15px;line-height:1;}
@@ -1343,6 +1348,117 @@ function Confetti({ burst, colors }) {
   if (!burst) return null;
   return <canvas ref={canvasRef} className="confetti-canvas" aria-hidden />;
 }
+
+function StadiumBg() {
+  const cvRef = useRef(null);
+  const tiltRef = useRef({ gamma: 0, beta: 0 });
+  useEffect(() => {
+    const cv = cvRef.current;
+    if (!cv) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let W = 0, H = 0, ctx = null;
+    function resize() {
+      W = window.innerWidth; H = window.innerHeight;
+      cv.width = W * dpr; cv.height = H * dpr;
+      ctx = cv.getContext("2d");
+      ctx.scale(dpr, dpr);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+    const pts = Array.from({ length: 30 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: 1.5 + Math.random(),
+      vy: 0.3 + Math.random() * 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      op: 0.2 + Math.random() * 0.4,
+      ph: Math.random() * Math.PI * 2,
+    }));
+    let rafId, t = 0;
+    function draw() {
+      t += 0.008;
+      const tx = tiltRef.current.gamma * (20 / 90);
+      const ty = tiltRef.current.beta * (20 / 90);
+      ctx.clearRect(0, 0, W, H);
+      // Layer 1 — pitch grid (bottom third, perspective)
+      const gH = H * 0.32, gY0 = H - gH;
+      ctx.save();
+      ctx.strokeStyle = "rgba(22,120,60,.22)";
+      ctx.lineWidth = 0.8;
+      const cols = 12;
+      for (let i = 0; i <= cols; i++) {
+        const fx = (i / cols) * W;
+        ctx.beginPath();
+        ctx.moveTo(W / 2 + (fx - W / 2) * 0.04, gY0 + gH * 0.04);
+        ctx.lineTo(fx, gY0 + gH);
+        ctx.stroke();
+      }
+      for (let j = 1; j <= 8; j++) {
+        const p = Math.pow(j / 8, 1.7);
+        const y = gY0 + gH * p;
+        ctx.beginPath();
+        ctx.moveTo(W / 2 - (W / 2) * p, y);
+        ctx.lineTo(W / 2 + (W / 2) * p, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+      // Layer 4 — crowd blur strip (top 15%)
+      const cg = ctx.createLinearGradient(0, 0, 0, H * 0.15);
+      cg.addColorStop(0, "rgba(240,180,50,.04)");
+      cg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = cg;
+      ctx.fillRect(0, 0, W, H * 0.15);
+      // Layer 2 — floodlight beams (4 beams, slow pan)
+      const beams = [
+        { bx: W * 0.08 + tx, by: -H * 0.05 + ty, ph: 0 },
+        { bx: W * 0.92 + tx, by: -H * 0.05 + ty, ph: Math.PI * 0.5 },
+        { bx: W * 0.22 + tx, by: -H * 0.08 + ty, ph: Math.PI },
+        { bx: W * 0.78 + tx, by: -H * 0.08 + ty, ph: Math.PI * 1.5 },
+      ];
+      for (const b of beams) {
+        const endX = W * 0.5 + Math.sin(t + b.ph) * W * 0.08;
+        const endY = H * 0.7;
+        const g = ctx.createRadialGradient(b.bx, b.by, 0, endX, endY, W * 0.5);
+        g.addColorStop(0, "rgba(255,255,255,.06)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.save();
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(b.bx, b.by);
+        ctx.lineTo(endX - W * 0.2, endY);
+        ctx.lineTo(endX + W * 0.2, endY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      // Layer 3 — gold particles
+      for (const p of pts) {
+        p.y -= p.vy;
+        p.x += p.vx + Math.sin(t * 2 + p.ph) * 0.15;
+        if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
+        ctx.save();
+        ctx.globalAlpha = p.op;
+        ctx.fillStyle = "#ffd633";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    const onTilt = (e) => { tiltRef.current = { gamma: e.gamma || 0, beta: e.beta || 0 }; };
+    window.addEventListener("deviceorientation", onTilt);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("deviceorientation", onTilt);
+    };
+  }, []);
+  return <canvas ref={cvRef} style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 0, pointerEvents: "none" }} aria-hidden />;
+}
+
 const Sticker = ({ children, style }) => {
   const ref = useRef(null);
   return (
@@ -3822,7 +3938,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v56</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v57</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -3884,10 +4000,7 @@ export default function App() {
           </div>
         </div>
       )}
-      <div className="beams" aria-hidden />
-      <div className="particles" aria-hidden>
-        {particles.map((pt, i) => <i key={i} style={{ left: `${pt.left}%`, width: pt.size, height: pt.size, animationDuration: `${pt.dur}s`, animationDelay: `${pt.delay}s` }} />)}
-      </div>
+      <StadiumBg />
       <div className="topwrap">
       <nav className="nav">
         <div className="nav-headline">
