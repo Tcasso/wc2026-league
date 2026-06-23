@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
-const APP_VERSION = "v63";
+const APP_VERSION = "v62";
 
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
@@ -99,59 +99,44 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .globe-player{position:fixed;top:calc(env(safe-area-inset-top,0) + 12px);right:12px;z-index:35;max-width:48vw;}
 .globe-player .who{font-size:13px;padding:7px 11px;border-color:rgba(240,201,58,.5);background:rgba(7,22,14,.88);border-radius:999px;}
 .globe-pip{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(7,22,14,.85);border:1px solid var(--gold);border-radius:999px;padding:6px 18px;font-family:'Bebas Neue';font-size:20px;letter-spacing:.04em;color:var(--gold-bright);display:flex;align-items:center;gap:3px;box-shadow:0 0 24px rgba(240,201,58,.25);}
-.globe-hint{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);z-index:30;font-family:'Barlow Condensed';letter-spacing:.2em;font-size:12px;color:var(--gold-bright);text-transform:uppercase;animation:hintFade 3s ease forwards;pointer-events:none;white-space:nowrap;text-shadow:0 0 10px rgba(240,201,58,.5);}
+.globe-hint{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);z-index:30;font-family:'Barlow Condensed';letter-spacing:.2em;font-size:11px;color:var(--muted);text-transform:uppercase;animation:hintFade 4s ease forwards;pointer-events:none;white-space:nowrap;}
 @keyframes hintFade{0%{opacity:0}18%{opacity:.85}78%{opacity:.85}100%{opacity:0}}
 .content-wrap{position:relative;z-index:10;padding-bottom:150px;}
 .more-btn-globe{position:fixed;bottom:30px;left:16px;z-index:45;background:rgba(7,22,14,.85);border:1px solid rgba(22,194,100,.45);border-radius:12px;width:46px;height:38px;font-size:22px;line-height:1;color:var(--gold-bright);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.45);}
 .more-btn-globe:active{transform:scale(.92);}
-/* globe sphere — a real photo of Earth wrapped onto a CSS sphere; full mode
-   slides between zones via a background-position transition, mini mode spins */
+/* globe sphere — a real photo of Earth from space wrapped onto a CSS 3D sphere illusion */
 .globe-sphere{position:fixed;left:50%;top:45%;
   transform:translate(-50%,-50%);
   width:var(--globe-size,280px);height:var(--globe-size,280px);
   border-radius:50%;
   background-image:url('/earth-globe.jpg');
-  background-size:300% 150%;
-  background-position:10% center;
+  background-size:200% 100%;
+  background-position:0% center;
   box-shadow:
     inset -30px -20px 80px rgba(0,0,0,0.85),
     inset 8px 8px 30px rgba(255,255,255,0.06),
     0 0 50px rgba(22,194,100,0.2),
     0 0 100px rgba(22,194,100,0.08),
     0 20px 60px rgba(0,0,0,0.6);
-  overflow:hidden;pointer-events:none;
-  transition:background-position 600ms ease-in-out;}
+  animation:globeSpin 25s linear infinite;
+  overflow:hidden;pointer-events:none;}
 @keyframes globeSpin{
   0%   { background-position: 0% center; }
-  100% { background-position: 300% center; }
+  100% { background-position: 200% center; }
 }
 .globe-sphere::before{content:'';position:absolute;inset:0;border-radius:50%;
-  background:
-    radial-gradient(circle at 32% 28%,
-      rgba(255,255,255,0.15) 0%,
-      rgba(255,255,255,0.04) 25%,
-      transparent 50%),
-    radial-gradient(circle at 50% 50%,
-      transparent 50%,
-      rgba(0,20,60,0.25) 75%,
-      rgba(0,0,0,0.7) 100%);
-  pointer-events:none;z-index:1;}
+  background:radial-gradient(circle at 32% 28%,
+    rgba(255,255,255,0.13) 0%,
+    rgba(255,255,255,0.04) 25%,
+    transparent 55%,
+    rgba(0,0,0,0.5) 100%);
+  pointer-events:none;}
 .globe-sphere::after{content:'';position:absolute;inset:0;border-radius:50%;
   background:radial-gradient(circle at 50% 50%,
-    transparent 62%,
-    rgba(0,0,0,0.5) 86%,
-    rgba(0,0,0,0.9) 100%);
-  pointer-events:none;z-index:1;}
-/* mini globe — fixed circle bottom-right, clipped circular, keeps spinning */
-.globe-sphere.is-mini{
-  left:auto;right:16px;top:auto;bottom:28px;transform:none;
-  width:72px;height:72px;
-  border:1.5px solid rgba(22,194,100,0.5);
-  box-shadow:0 0 20px rgba(22,194,100,0.3),0 4px 16px rgba(0,0,0,0.5),
-    inset -10px -8px 26px rgba(0,0,0,0.7);
-  transition:transform 400ms cubic-bezier(0.2,1.4,0.4,1);
-  animation:globeSpin 30s linear infinite;
-  z-index:56;}
+    transparent 55%,
+    rgba(0,0,0,0.7) 80%,
+    rgba(0,0,0,0.92) 100%);
+  pointer-events:none;}
 .globe-atmosphere{position:fixed;left:50%;top:45%;
   transform:translate(-50%,-50%);
   width:calc(var(--globe-size,280px) * 1.22);
@@ -162,36 +147,22 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
     rgba(100,180,255,0.06) 50%,
     rgba(22,194,100,0.05) 58%,
     transparent 68%);
-  pointer-events:none;z-index:18;
+  pointer-events:none;
   animation:atmospherePulse 4s ease-in-out infinite;}
 @keyframes atmospherePulse{
   0%,100% { opacity: 0.8; }
   50% { opacity: 1; }
 }
-.globe-zone-hint{position:fixed;
-  left:50%;top:calc(45% + var(--globe-size,280px) / 2 + 26px);
-  transform:translateX(-50%);
-  font-family:'Bebas Neue';font-size:20px;
+.globe-zone-hint{position:absolute;
+  bottom:calc(var(--globe-size,280px) / 2 + 20px);
+  left:50%;transform:translateX(-50%);
+  font-family:'Bebas Neue';font-size:18px;
   letter-spacing:.1em;color:var(--gold-bright);
   text-shadow:0 0 12px rgba(240,201,58,0.6);
-  pointer-events:none;text-align:center;
-  animation:hintAppear .4s ease;
+  pointer-events:none;
+  animation:hintAppear .2s ease;
   white-space:nowrap;z-index:30;}
-@keyframes hintAppear{ from { opacity: 0; transform: translateX(-50%) translateY(6px); } }
-.globe-zone-hint.locked{
-  color:var(--gold-bright);
-  text-shadow:0 0 20px rgba(240,201,58,0.8);}
-.globe-zone-hint.locked::after{
-  content:'';display:block;
-  width:30px;height:2px;
-  background:var(--gold-bright);
-  margin:4px auto 0;border-radius:1px;
-  animation:lockPulse 0.8s ease forwards;}
-@keyframes lockPulse{
-  0% { opacity: 0; transform: scaleX(0); }
-  60% { opacity: 1; transform: scaleX(1); }
-  100% { opacity: 0.7; transform: scaleX(0.8); }
-}
+@keyframes hintAppear{ from { opacity: 0; transform: translateX(-50%) translateY(4px); } }
 .globe-back-btn{position:fixed;bottom:28px;right:16px;z-index:65;
   background:linear-gradient(135deg, rgba(13,46,28,.92), rgba(7,22,14,.95));
   border:1px solid rgba(22,194,100,.5);
@@ -3930,12 +3901,12 @@ function ShamePage({ game, me, mutate }) {
 /* ════════════════ 3D GLOBE NAVIGATION ════════════════ */
 // Six glowing zones on the sphere surface — the globe IS the navigation.
 const GLOBE_ZONES = [
-  { pos: 0.10, color: "#ffd633", icon: "🏟️", label: "HOME", tab: "home" },
-  { pos: 0.25, color: "#16c264", icon: "✅", label: "PICKS", tab: "picks" },
-  { pos: 0.42, color: "#ff4d6d", icon: "⚔️", label: "WAR ROOM", tab: "war" },
-  { pos: 0.58, color: "#ffd633", icon: "🏆", label: "TABLE", tab: "board" },
-  { pos: 0.74, color: "#33d6e0", icon: "👤", label: "PROFILE", tab: "profile" },
-  { pos: 0.90, color: "#ff5fa2", icon: "🎯", label: "STATS", tab: "stats" },
+  { lat: 0.3, lon: 0.0, color: "#ffd633", icon: "🏟️", label: "HOME", tab: "home" },
+  { lat: -0.2, lon: 1.1, color: "#16c264", icon: "✅", label: "PICKS", tab: "picks" },
+  { lat: 0.5, lon: 2.2, color: "#ff4d6d", icon: "⚔️", label: "WAR ROOM", tab: "war" },
+  { lat: -0.4, lon: 3.3, color: "#ffd633", icon: "🏆", label: "TABLE", tab: "board" },
+  { lat: 0.2, lon: 4.4, color: "#33d6e0", icon: "👤", label: "PROFILE", tab: "profile" },
+  { lat: -0.3, lon: 5.5, color: "#ff5fa2", icon: "🎯", label: "STATS", tab: "stats" },
 ];
 const GLOBE_TAB_KEYS = new Set(GLOBE_ZONES.map((z) => z.tab));
 function hexA(hex, a) {
@@ -3946,51 +3917,31 @@ function hexA(hex, a) {
 function GlobeNav({ mini, activeTab, onSelect }) {
   const canvasRef = useRef(null);
   const sphereRef = useRef(null);
+  const atmoRef = useRef(null);
   const stateRef = useRef(null);
   if (!stateRef.current) {
     stateRef.current = {
-      zoneIndex: 0, dragging: false, didDrag: false,
-      startX: 0, dragDelta: 0, t: 0, locked: true,
-      flashTab: null, flashUntil: 0,
+      rotY: 0, rotX: 0.12, velY: 0.05, velX: 0,
+      dragging: false, lx: 0, ly: 0, moved: 0, ldx: 0, ldy: 0,
+      coasting: false, snapping: false, snapHold: 0,
+      morph: mini ? 1 : 0, morphV: 0,
+      flashTab: null, flashUntil: 0, t: 0, trail: [],
+      cx: 0, cy: 0, R: 1,
+      bgOffset: 0, bgVel: 0, lbgd: 0, bgManual: false, bgIdleBase: 0, bgIdleStart: 0,
+      lastTapTime: 0, lastTapTab: null, hintTab: null,
     };
   }
-  const [zoneIndex, setZoneIndex] = useState(0);
-  const [locked, setLockedState] = useState(true);
-  const [showHint, setShowHint] = useState(false);
+  const [hintZone, setHintZone] = useState(null);
   const propsRef = useRef({ mini, activeTab, onSelect });
   propsRef.current = { mini, activeTab, onSelect };
-  const goToZoneRef = useRef(null);
-
-  const setLocked = useCallback((v) => { stateRef.current.locked = v; setLockedState(v); }, []);
-  const goToZone = useCallback((idx) => {
-    const n = GLOBE_ZONES.length;
-    const i = ((idx % n) + n) % n;
-    stateRef.current.zoneIndex = i;
-    setZoneIndex(i);
-    setLocked(false);
-    try { navigator.vibrate && navigator.vibrate(6); } catch (e) {}
-  }, [setLocked]);
-  goToZoneRef.current = goToZone;
-
-  // first-open instruction hint — once, ever
-  useEffect(() => {
-    if (mini) return;
-    try {
-      if (!localStorage.getItem("wc26-globe-hint-shown")) {
-        localStorage.setItem("wc26-globe-hint-shown", "1");
-        setShowHint(true);
-        const t = setTimeout(() => setShowHint(false), 3000);
-        return () => clearTimeout(t);
-      }
-    } catch (e) {}
-  }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current, sphere = sphereRef.current;
-    if (!canvas || !sphere) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const s = stateRef.current;
+    const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     const TAU = Math.PI * 2;
     let W = 0, H = 0, dpr = 1;
     function resize() {
@@ -4002,85 +3953,215 @@ function GlobeNav({ mini, activeTab, onSelect }) {
     resize();
     window.addEventListener("resize", resize);
 
-    const THRESH = 15;
+    // spherical → screen using the live rotation + sphere geometry on state
+    function proj(lat, lon) {
+      const cl = Math.cos(lat), sl = Math.sin(lat);
+      const x0 = cl * Math.sin(lon + s.rotY);
+      const y0 = sl;
+      const z0 = cl * Math.cos(lon + s.rotY);
+      const cX = Math.cos(s.rotX), sX = Math.sin(s.rotX);
+      const y1 = y0 * cX - z0 * sX;
+      const z1 = y0 * sX + z0 * cX;
+      return { x: s.cx + s.R * x0, y: s.cy - s.R * y1, z: z1 };
+    }
+    function nearestZone() {
+      let best = GLOBE_ZONES[0], bz = -2;
+      for (const z of GLOBE_ZONES) { const p = proj(z.lat, z.lon); if (p.z > bz) { bz = p.z; best = z; } }
+      return best;
+    }
+    function angDiff(a, b) { let d = ((b - a + Math.PI) % TAU) - Math.PI; if (d < -Math.PI) d += TAU; return d; }
+
+    const pt = (e) => ({ x: e.clientX, y: e.clientY });
     function onDown(e) {
       if (propsRef.current.mini) return;
-      s.dragging = true; s.didDrag = false;
-      s.startX = e.clientX; s.dragDelta = 0;
+      s.dragging = true; s.moved = 0; s.coasting = false; s.snapping = false;
+      const p = pt(e); s.lx = p.x; s.ly = p.y; s.velY = 0; s.velX = 0;
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     }
     function onMove(e) {
       if (!s.dragging) return;
-      s.dragDelta = e.clientX - s.startX;
-      if (!s.didDrag && Math.abs(s.dragDelta) > THRESH) { s.didDrag = true; setLocked(false); }
+      const p = pt(e); const dx = p.x - s.lx, dy = p.y - s.ly; s.lx = p.x; s.ly = p.y;
+      s.moved += Math.abs(dx) + Math.abs(dy);
+      if (!reduce) {
+        s.rotY += dx * 0.008; s.rotX += dy * 0.004;
+        s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
+        s.ldx = dx * 0.008; s.ldy = dy * 0.004;
+        s.bgOffset += dx * 0.15; s.lbgd = dx * 0.15;
+      }
     }
     function onUp() {
       if (!s.dragging) return;
       s.dragging = false;
-      const delta = s.dragDelta;
-      if (!s.didDrag && Math.abs(delta) < THRESH) {
-        // a tap — enter the locked-on zone
-        if (s.locked) {
-          const z = GLOBE_ZONES[s.zoneIndex];
-          s.flashTab = z.tab; s.flashUntil = s.t + 14;
-          try { navigator.vibrate && navigator.vibrate(14); } catch (err) {}
-          propsRef.current.onSelect(z.tab);
+      // only select on a near-still release — a swipe with velocity coasts first
+      const vel = Math.abs(s.ldx) + Math.abs(s.ldy);
+      if (s.moved < 8 && vel <= 0.05) {
+        // pick whichever zone is closest to front-centre; the front-most one
+        // (the locked-on target) wins so a tap always enters something sensible
+        let best = null, bd = 1e9;
+        for (const z of GLOBE_ZONES) { const p = proj(z.lat, z.lon); if (p.z <= 0) continue; const d = Math.hypot(p.x - s.cx, p.y - s.cy); if (d < bd) { bd = d; best = z; } }
+        const front = nearestZone(), fp = proj(front.lat, front.lon);
+        let pick = bd < 65 ? best : (fp.z > 0.55 ? front : null);
+        const tnow = performance.now();
+        const candidate = pick || front;
+        const dbl = (tnow - s.lastTapTime < 300) && s.lastTapTab === candidate.tab;
+        s.lastTapTime = tnow; s.lastTapTab = candidate.tab;
+        // double-tap on the same zone forces selection of the locked-on zone
+        if (!pick && dbl && fp.z > 0) pick = front;
+        if (pick) {
+          s.flashTab = pick.tab; s.flashUntil = s.t + 14;
+          try { navigator.vibrate && navigator.vibrate(dbl ? 20 : 12); } catch (err) {}
+          propsRef.current.onSelect(pick.tab);
         }
-      } else {
-        // a swipe — slide one zone in the drag direction (or stay if too small)
-        if (delta > 30) goToZoneRef.current(s.zoneIndex - 1);
-        else if (delta < -30) goToZoneRef.current(s.zoneIndex + 1);
-      }
-    }
-    function onTransEnd(ev) {
-      if (ev.propertyName === "background-position" && !propsRef.current.mini) setLocked(true);
+      } else if (!reduce) { s.velY = s.ldx; s.velX = s.ldy; s.coasting = true; s.bgVel = s.lbgd; }
     }
     canvas.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
-    sphere.addEventListener("transitionend", onTransEnd);
 
-    let raf = 0;
-    function frame() {
+    let raf = 0, last = performance.now();
+    s.bgIdleStart = last; s.bgIdleBase = ((s.bgOffset % 200) + 200) % 200;
+    function frame(now) {
       raf = requestAnimationFrame(frame);
+      const dt = now - last; last = now;
+      const slow = dt > 20;
+      const isMini = propsRef.current.mini, act = propsRef.current.activeTab;
       s.t += 1;
-      ctx.clearRect(0, 0, W, H);
-      if (propsRef.current.mini) return; // mini mode is just the spinning sphere
 
-      const cur = s.zoneIndex, n = GLOBE_ZONES.length;
-      const pulse = 0.5 + 0.5 * Math.sin(s.t * 0.09);
-      const y = H * 0.50;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      for (let i = 0; i < n; i++) {
-        const z = GLOBE_ZONES[i];
-        const x = W * z.pos;
-        const dist = Math.min(Math.abs(i - cur), n - Math.abs(i - cur));
-        let radius, alpha, ring = false;
-        if (i === cur) { radius = 22; alpha = 1.0; ring = true; }
-        else if (dist === 1) { radius = 16; alpha = 0.6; }
-        else { radius = 12; alpha = 0.35; }
-        const flashing = s.flashTab === z.tab && s.t < s.flashUntil;
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.shadowBlur = 18; ctx.shadowColor = z.color;
-        ctx.fillStyle = hexA(z.color, flashing ? 0.55 : 0.28);
-        ctx.beginPath(); ctx.arc(x, y, radius * (1 + 0.05 * pulse), 0, TAU); ctx.fill();
-        ctx.fillStyle = hexA(z.color, flashing ? 1 : 0.72);
-        ctx.beginPath(); ctx.arc(x, y, radius * 0.6, 0, TAU); ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = Math.min(1, alpha + 0.25);
-        ctx.font = `${Math.round(radius * 0.9)}px serif`;
-        ctx.fillText(z.icon, x, y - 1);
-        ctx.font = `${Math.max(11, Math.round(radius * 0.55))}px 'Bebas Neue', sans-serif`;
-        ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.fillText(z.label, x, y + radius + 12);
-        if (ring) {
-          const rr = (s.t % 60) / 60;
-          ctx.globalAlpha = (1 - rr) * 0.85;
-          ctx.strokeStyle = "#f0c93a"; ctx.lineWidth = 2.5;
-          ctx.beginPath(); ctx.arc(x, y, radius + rr * 26, 0, TAU); ctx.stroke();
+      // springy morph between full-screen and mini-corner
+      const target = isMini ? 1 : 0;
+      s.morphV += (target - s.morph) * 0.18; s.morphV *= 0.72; s.morph += s.morphV;
+      if (Math.abs(target - s.morph) < 0.001 && Math.abs(s.morphV) < 0.001) { s.morph = target; s.morphV = 0; }
+      const m = Math.max(0, Math.min(1, s.morph));
+
+      // rotation: drag is live; otherwise auto-rotate / momentum / snap
+      if (!s.dragging) {
+        if (reduce) { s.velY = 0; s.velX = 0; }
+        else if (isMini) { s.rotY += 0.004 + s.velY; s.rotX += s.velX; s.velY *= 0.9; s.velX *= 0.9; }
+        else if (s.snapping) {
+          const tg = nearestZone();
+          const dY = angDiff(s.rotY, -tg.lon), dX = tg.lat - s.rotX;
+          s.rotY += dY * 0.09; s.rotX += dX * 0.09;
+          if (Math.abs(dY) < 0.01 && Math.abs(dX) < 0.01) { s.snapping = false; s.snapHold = s.t + 150; }
+        } else {
+          s.rotY += s.velY; s.rotX += s.velX; s.velY *= 0.93; s.velX *= 0.93;
+          if (Math.abs(s.velY) < 0.0035 && Math.abs(s.velX) < 0.0035) {
+            if (s.coasting) { s.coasting = false; s.snapping = true; }
+            else if (s.t > s.snapHold) s.rotY += 0.003;
+          }
         }
+        s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
+      }
+
+      // sphere geometry lerped between full and corner
+      const fR = Math.min(W, H) * 0.33, fcx = W / 2, fcy = H * 0.45;
+      const mR = 44, mcx = W - 64, mcy = H - 76;
+      s.R = fR + (mR - fR) * m; s.cx = fcx + (mcx - fcx) * m; s.cy = fcy + (mcy - fcy) * m;
+      const R = s.R, cx = s.cx, cy = s.cy;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // size/position the real-Earth sphere to follow the morph; the canvas
+      // above only paints zones/overlays and stays transparent elsewhere
+      const sphereEl = sphereRef.current, atmoEl = atmoRef.current;
+      const d = R * 2;
+      if (sphereEl) {
+        sphereEl.style.left = cx + "px"; sphereEl.style.top = cy + "px";
+        sphereEl.style.width = d + "px"; sphereEl.style.height = d + "px";
+      }
+      if (atmoEl) {
+        const ad = d * 1.22;
+        atmoEl.style.left = cx + "px"; atmoEl.style.top = cy + "px";
+        atmoEl.style.width = ad + "px"; atmoEl.style.height = ad + "px";
+      }
+
+      // Earth spin: the CSS globeSpin animation drives the idle rotation; while
+      // dragging or coasting we pause it and shift background-position by hand,
+      // then re-phase and hand the spin back to CSS when the globe settles so
+      // it resumes from the current position without jumping.
+      if (sphereEl && !reduce) {
+        const manual = s.dragging || s.coasting || s.snapping;
+        if (manual && !s.bgManual) {
+          const elapsed = (now - s.bgIdleStart) / 1000;
+          s.bgOffset = s.bgIdleBase + elapsed * 8; // globeSpin = 200% / 25s = 8%/s
+          s.bgManual = true;
+          sphereEl.style.animation = "none";
+        }
+        if (s.bgManual) {
+          if (!s.dragging) { s.bgOffset += s.bgVel; s.bgVel *= 0.95; }
+          sphereEl.style.backgroundPosition = (((s.bgOffset % 200) + 200) % 200) + "% center";
+        }
+        if (!manual && s.bgManual) {
+          s.bgManual = false;
+          const phase = (((s.bgOffset % 200) + 200) % 200) / 200;
+          sphereEl.style.animation = "";
+          sphereEl.style.animationDelay = (-phase * 25) + "s";
+          sphereEl.style.animationPlayState = "running";
+          sphereEl.style.backgroundPosition = "";
+          s.bgIdleBase = phase * 200; s.bgIdleStart = now;
+        }
+      } else if (sphereEl && reduce) {
+        sphereEl.style.animation = "none";
+      }
+
+      const front = nearestZone();
+      // surface the locked-on zone name as a hint below the full globe
+      if (!isMini) {
+        if (s.hintTab !== front.tab) { s.hintTab = front.tab; setHintZone(front); }
+      } else if (s.hintTab !== null) { s.hintTab = null; setHintZone(null); }
+      // motion trail of the front zone (skipped on slow frames)
+      if (!slow && m < 0.6) {
+        const fp = proj(front.lat, front.lon);
+        if (fp.z > 0) { s.trail.push({ x: fp.x, y: fp.y, c: front.color }); if (s.trail.length > 8) s.trail.shift(); }
+        for (let i = 0; i < s.trail.length; i++) { const tr = s.trail[i]; ctx.globalAlpha = (i / s.trail.length) * 0.22 * (1 - m); ctx.fillStyle = tr.c; ctx.beginPath(); ctx.arc(tr.x, tr.y, 6 * (i / s.trail.length), 0, TAU); ctx.fill(); }
+        ctx.globalAlpha = 1;
+      }
+      // targeting line to the locked-on zone
+      if (m < 0.5) {
+        const fp = proj(front.lat, front.lon);
+        if (fp.z > 0.2) { ctx.globalAlpha = (1 - m) * 0.3; ctx.strokeStyle = front.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(fp.x, fp.y); ctx.stroke(); ctx.globalAlpha = 1; }
+      }
+
+      // zones
+      const pulse = 0.5 + 0.5 * Math.sin(s.t * 0.09);
+      const zf = 1 - m;
+      if (zf > 0.02) {
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        for (const z of GLOBE_ZONES) {
+          const p = proj(z.lat, z.lon);
+          if (p.z <= 0.02) continue;
+          const depth = 0.55 + 0.45 * p.z;
+          const flashing = s.flashTab === z.tab && s.t < s.flashUntil;
+          ctx.save();
+          ctx.shadowBlur = 20; ctx.shadowColor = z.color;
+          ctx.globalAlpha = zf * (0.5 + 0.5 * p.z);
+          ctx.fillStyle = hexA(z.color, flashing ? 0.5 : 0.25);
+          ctx.beginPath(); ctx.arc(p.x, p.y, 36 * depth * (1 + 0.06 * pulse), 0, TAU); ctx.fill();
+          ctx.fillStyle = hexA(z.color, flashing ? 1 : 0.6);
+          ctx.beginPath(); ctx.arc(p.x, p.y, 20 * depth, 0, TAU); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = zf * Math.min(1, 0.6 + 0.5 * p.z);
+          ctx.font = `${Math.round(22 * depth)}px serif`;
+          ctx.fillText(z.icon, p.x, p.y - 1);
+          ctx.font = `${Math.round(13 * depth)}px 'Bebas Neue', sans-serif`;
+          ctx.fillStyle = "rgba(255,255,255,0.85)";
+          ctx.fillText(z.label, p.x, p.y + 30 * depth);
+          if (z.tab === act) {
+            const rr = (s.t % 60) / 60;
+            ctx.globalAlpha = zf * (1 - rr) * 0.8; ctx.strokeStyle = z.color; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(p.x, p.y, (20 + rr * 30) * depth, 0, TAU); ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      // mini-corner: glow ring in the active zone's colour
+      if (m > 0.05) {
+        const az = GLOBE_ZONES.find((z) => z.tab === act) || GLOBE_ZONES[0];
+        ctx.save();
+        ctx.globalAlpha = m * 0.9; ctx.shadowBlur = 22; ctx.shadowColor = az.color;
+        ctx.strokeStyle = hexA(az.color, 0.65); ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(cx, cy, R + 3, 0, TAU); ctx.stroke();
         ctx.restore();
       }
     }
@@ -4093,25 +4174,17 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
-      sphere.removeEventListener("transitionend", onTransEnd);
     };
-  }, [setLocked]);
+  }, []);
 
-  const curZone = GLOBE_ZONES[zoneIndex];
   return (
     <>
-      {!mini && <div className="globe-atmosphere" aria-hidden />}
-      <div
-        ref={sphereRef}
-        className={`globe-sphere${mini ? " is-mini" : ""}`}
-        aria-hidden
-        style={mini ? undefined : { backgroundPosition: `${curZone.pos * 100}% center` }}
-      />
+      <div ref={atmoRef} className="globe-atmosphere" aria-hidden style={{ zIndex: mini ? 55 : 18 }} />
+      <div ref={sphereRef} className="globe-sphere" aria-hidden style={{ zIndex: mini ? 56 : 19 }} />
       <canvas ref={canvasRef} className={`globe-canvas${mini ? " is-mini" : ""}`} aria-label="globe navigation" />
-      {!mini && (
-        <div className={`globe-zone-hint${locked ? " locked" : ""}`}>{curZone.icon} {curZone.label}</div>
+      {!mini && hintZone && (
+        <div className="globe-zone-hint">{hintZone.icon} {hintZone.label}</div>
       )}
-      {!mini && showHint && <div className="globe-hint">← SWIPE TO EXPLORE →</div>}
     </>
   );
 }
@@ -4403,6 +4476,7 @@ export default function App() {
             </select>
           </div>
           <span className="globe-pip">{game.config.currency}<CountUp value={pot} decimals={2} /></span>
+          <div className="globe-hint">Swipe to explore · tap a zone</div>
         </>
       ) : (
         <>
