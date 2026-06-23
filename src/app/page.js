@@ -445,6 +445,30 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .tab-more{position:relative;}
 .tab-more .more-glow{position:absolute;top:2px;right:14px;width:6px;height:6px;border-radius:50%;background:var(--gold-bright);box-shadow:0 0 8px var(--gold-bright);}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
+/* group stage wind-down */
+.rtk-panel{background:linear-gradient(180deg,rgba(13,50,28,.88),rgba(9,26,18,.9));border:1px solid rgba(22,194,100,.35);border-radius:16px;padding:14px 16px;margin-top:16px;margin-bottom:4px;}
+.rtk-group{margin-bottom:12px;}
+.rtk-group-hd{font-family:'Bebas Neue';font-size:16px;letter-spacing:.1em;color:var(--gold-bright);display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.rtk-live-badge{font-family:'Barlow Condensed';font-size:10px;letter-spacing:.1em;background:rgba(230,57,70,.2);border:1px solid rgba(230,57,70,.45);border-radius:999px;padding:2px 8px;color:#f1a0a7;}
+.rtk-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;margin-bottom:3px;font-size:13px;}
+.rtk-row.qualified{background:rgba(45,110,71,.28);border:1px solid rgba(63,174,108,.35);}
+.rtk-row.inrace{background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);}
+.rtk-row.elim{opacity:.55;}
+.rtk-pos{font-family:'Bebas Neue';font-size:16px;min-width:20px;color:var(--muted);}
+.rtk-pos.q{color:#3fae6c;}.rtk-pos.a{color:var(--gold-bright);}
+.rtk-pts{margin-left:auto;font-family:'Bebas Neue';font-size:15px;color:var(--gold-bright);}
+.gs-done-banner{background:linear-gradient(135deg,rgba(240,201,58,.14),rgba(22,194,100,.16));border:1px solid var(--gold);border-radius:16px;padding:18px 16px;margin-top:16px;margin-bottom:4px;text-align:center;}
+.gs-stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
+.gs-stat{background:rgba(6,20,12,.65);border:1px solid rgba(22,194,100,.22);border-radius:10px;padding:10px 6px;text-align:center;}
+.gs-stat .sv{font-family:'Bebas Neue';font-size:17px;color:var(--gold-bright);line-height:1.15;word-break:break-word;}
+.gs-stat .sl{font-family:'Barlow Condensed';font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:3px;}
+.tbl-toggle{display:flex;background:#0a1810;border:1px solid rgba(22,194,100,.28);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.tbl-toggle button{flex:1;padding:9px 4px;border:none;background:none;color:var(--muted);font-family:'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;font-size:13px;cursor:pointer;}
+.tbl-toggle button.on{background:linear-gradient(135deg,rgba(240,201,58,.18),rgba(22,194,100,.1));color:var(--gold-bright);}
+.ko-match{display:flex;align-items:center;gap:8px;background:rgba(10,28,18,.7);border:1px solid rgba(22,194,100,.18);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+.ko-team{flex:1;display:flex;align-items:center;gap:6px;font-family:'Bebas Neue';font-size:14px;min-width:0;}
+.ko-vs{font-family:'Bebas Neue';font-size:15px;color:var(--muted);flex:0 0 auto;}
+.ko-time{font-family:'Barlow Condensed';font-size:11px;letter-spacing:.04em;color:var(--muted);white-space:nowrap;}
 `;
 
 /* ── scoring tables ─────────────────────────────────────────── */
@@ -1308,6 +1332,19 @@ function computeGroupTables(game) {
   }));
 }
 
+function isGroupStageEnding(game) {
+  const gms = game.matches.filter(m => m.stage === "GROUP" && m.status !== "void");
+  if (!gms.length) return false;
+  const done = gms.filter(m => m.status === "finished").length;
+  const ratio = done / gms.length;
+  return ratio >= 0.75 && ratio < 1;
+}
+function isGroupStageDone(game) {
+  const gms = game.matches.filter(m => m.stage === "GROUP" && m.status !== "void");
+  if (!gms.length) return false;
+  return gms.every(m => m.status === "finished");
+}
+
 function SquadView({ apiKey, team, flag }) {
   const [open, setOpen] = useState(false);
   const [squad, setSquad] = useState(null);
@@ -1892,6 +1929,82 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
         );
       })()}
 
+      {(() => {
+        if (isGroupStageDone(game)) {
+          const gmMs = game.matches.filter(m => m.stage === "GROUP" && m.status === "finished");
+          const pcByPlayer = {};
+          for (const m of gmMs) {
+            const res = matchResult(m);
+            for (const pid in (game.picks[m.id] || {})) {
+              if (!pcByPlayer[pid]) pcByPlayer[pid] = { correct: 0, total: 0 };
+              pcByPlayer[pid].total++;
+              if (game.picks[m.id][pid].pred === res) pcByPlayer[pid].correct++;
+            }
+          }
+          const topP = game.players.map(p => ({ p, ...(pcByPlayer[p.id] || { correct: 0, total: 0 }) }))
+            .sort((a, b) => b.correct - a.correct)[0];
+          let upset = null, upsetMin = Infinity;
+          for (const m of gmMs) {
+            const res = matchResult(m);
+            if (!res || res === "D") continue;
+            const pks = Object.values(game.picks[m.id] || {});
+            if (!pks.length) continue;
+            const cnt = pks.filter(pk => pk.pred === res).length;
+            if (cnt < upsetMin) { upsetMin = cnt; upset = { m, cnt, total: pks.length }; }
+          }
+          const consP = game.players.map(p => {
+            const s = pcByPlayer[p.id] || { correct: 0, total: 0 };
+            return { p, acc: s.total >= 5 ? s.correct / s.total : 0, ...s };
+          }).sort((a, b) => b.acc - a.acc)[0];
+          const upsetWinner = upset ? tById[matchResult(upset.m) === "A" ? upset.m.teamA : upset.m.teamB] : null;
+          return (
+            <div className="gs-done-banner">
+              <div className="bebas gold" style={{ fontSize: 28, letterSpacing: ".06em" }}>Group Stage Complete!</div>
+              <div className="barlow muted" style={{ fontSize: 11, letterSpacing: ".2em", marginTop: 4 }}>The knockout round begins — who survives?</div>
+              <div className="gs-stat-grid">
+                {topP && <div className="gs-stat"><div className="sv">{topP.p.avatar} {topP.p.name}</div><div className="sl">Top predictor · {topP.correct} correct</div></div>}
+                {upset && upsetWinner && <div className="gs-stat"><div className="sv"><Flag name={upsetWinner.name} size={16} /> {upsetWinner.name}</div><div className="sl">Biggest upset · {upsetMin}/{upset.total} predicted</div></div>}
+                {consP && consP.acc > 0 && <div className="gs-stat"><div className="sv">{consP.p.avatar} {consP.p.name}</div><div className="sl">Most consistent · {Math.round(consP.acc * 100)}%</div></div>}
+              </div>
+            </div>
+          );
+        }
+        if (isGroupStageEnding(game)) {
+          const tables = computeGroupTables(game);
+          return (
+            <div className="rtk-panel">
+              <div style={{ fontFamily: "'Bebas Neue'", fontSize: 22, letterSpacing: ".06em", marginBottom: 12, color: "var(--gold-bright)" }}>🏁 Road to the Knockouts</div>
+              <div className="grid2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))" }}>
+                {tables.map(({ group, rows: grpRows }) => {
+                  const stillLive = grpRows.some(r => r.P < 3);
+                  return (
+                    <div key={group} className="rtk-group">
+                      <div className="rtk-group-hd">
+                        Group {group}
+                        {stillLive && <span className="rtk-live-badge">🔥 Still live</span>}
+                      </div>
+                      {grpRows.map((r, i) => {
+                        const cls = i < 2 ? "qualified" : i === 2 ? "inrace" : "elim";
+                        const posClass = i < 2 ? "q" : i === 2 ? "a" : "";
+                        return (
+                          <div key={r.team?.id || i} className={`rtk-row ${cls}`}>
+                            <span className={`rtk-pos ${posClass}`}>{i + 1}</span>
+                            <Flag name={r.team?.name} size={13} />
+                            <span>{r.team?.name}</span>
+                            <span className="rtk-pts">{r.Pts}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       {!game.config.apiKey && (
         <div className="banner" style={{ marginTop: 16 }}>
           ⚙️ Add a free football-data.org API key in Admin to auto-load today's fixtures.
@@ -2230,8 +2343,10 @@ function Final8Page({ game, me, mutate }) {
 function LeaderboardPage({ game, meId }) {
   const [tab, setTab] = useState("overall");
   const [openRow, setOpenRow] = useState(null);
+  const [panelView, setPanelView] = useState("groups");
   const leaders = prizeLeaders(game);
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const groupDone = isGroupStageDone(game);
   let rows = computeStandings(game);
   const sorters = {
     overall: (a, b) => b.total - a.total,
@@ -2258,6 +2373,69 @@ function LeaderboardPage({ game, meId }) {
   return (
     <div className="page lb-wrap">
       <div className="lb-watermark"><Trophy size={340} /></div>
+      {groupDone && (
+        <div style={{ marginBottom: 8 }}>
+          <div className="tbl-toggle">
+            <button className={panelView === "groups" ? "on" : ""} onClick={() => setPanelView("groups")}>Group Tables</button>
+            <button className={panelView === "bracket" ? "on" : ""} onClick={() => setPanelView("bracket")}>Bracket</button>
+          </div>
+          {panelView === "groups" && (() => {
+            const tables = computeGroupTables(game);
+            if (!tables.length) return <div className="panel muted">No group table data yet.</div>;
+            return (
+              <div className="grid2" style={{ marginBottom: 12 }}>
+                {tables.map((g) => (
+                  <div className="panel" style={{ padding: "8px 4px" }} key={g.group}>
+                    <div className="gt-title">Group {g.group}</div>
+                    <div className="gt-head"><span>#</span><span>Team</span><span className="num">P</span><span className="num">W</span><span className="num">D</span><span className="num">L</span><span className="num">GD</span><span className="num">Pts</span></div>
+                    {g.rows.map((row, i) => {
+                      const gd = row.GF - row.GA;
+                      return (
+                        <div className={`gt-row ${i < 2 ? "q" : ""}`} key={row.team?.id || i}>
+                          <span className="pos">{i + 1}</span>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Flag name={row.team?.name} size={14} /> {row.team?.name}</span>
+                          <span className="num">{row.P}</span><span className="num">{row.W}</span><span className="num">{row.D}</span><span className="num">{row.L}</span>
+                          <span className="num">{gd > 0 ? `+${gd}` : gd}</span>
+                          <span className="pts">{row.Pts}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          {panelView === "bracket" && (() => {
+            const koMs = game.matches
+              .filter(m => (m.stage === "R32" || m.stage === "R16") && m.status !== "void")
+              .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+            if (!koMs.length) return <div className="panel muted">Knockout fixtures not loaded yet.</div>;
+            const byStage = {};
+            for (const m of koMs) { if (!byStage[m.stage]) byStage[m.stage] = []; byStage[m.stage].push(m); }
+            return (
+              <div style={{ marginBottom: 12 }}>
+                {["R32", "R16"].filter(s => byStage[s]).map(s => (
+                  <div key={s}>
+                    <div className="gt-title" style={{ padding: "6px 0 6px" }}>{STAGE_LABEL[s]}</div>
+                    {byStage[s].map(m => {
+                      const a = tById[m.teamA], b = tById[m.teamB];
+                      const fin = m.status === "finished";
+                      return (
+                        <div key={m.id} className="ko-match">
+                          <div className="ko-team"><Flag name={a?.name} size={14} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a?.name || "TBD"}</span></div>
+                          {fin ? <span className="ko-vs bebas" style={{ fontSize: 16, color: "var(--gold-bright)" }}>{m.scoreA}–{m.scoreB}</span> : <span className="ko-vs">vs</span>}
+                          <div className="ko-team" style={{ justifyContent: "flex-end" }}><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b?.name || "TBD"}</span><Flag name={b?.name} size={14} /></div>
+                          <div className="ko-time">{new Date(m.kickoff).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+      )}
       {tab === "overall" && leaderRow && (
         <div className="podium-hero">
           <div className="leader-aura" />
@@ -3072,6 +3250,18 @@ export default function App() {
   const [pickFlash, setPickFlash] = useState(null);
   const fireConfetti = (colors) => { setBurstColors(colors || null); setBurst(false); requestAnimationFrame(() => setBurst(true)); setTimeout(() => setBurst(false), 4000); };
 
+  useEffect(() => {
+    if (!game || !isGroupStageDone(game)) return;
+    try {
+      if (localStorage.getItem("wc26-groups-done-shown")) return;
+      localStorage.setItem("wc26-groups-done-shown", "1");
+    } catch (e) { return; }
+    setBurstColors(["#ffd633", "#16c264", "#ffffff", "#4fc3f7"]);
+    setBurst(false);
+    requestAnimationFrame(() => setBurst(true));
+    setTimeout(() => setBurst(false), 4000);
+  }, [game]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // THE PICK RUSH: full-screen "LET'S GO" + confetti in the country's colours
   const flashTimer = useRef(null);
   const celebratePick = (team) => {
@@ -3138,7 +3328,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v53</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v54</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
