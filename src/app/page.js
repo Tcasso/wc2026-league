@@ -2088,12 +2088,14 @@ function UnderdogPage({ game, me, mutate }) {
   const myUd = me ? game.underdog[me.id] : null;
   const myTeam = myUd ? game.teams.find((t) => t.id === myUd.teamId) : null;
   const order = pickOrder(game);
+  const isAdminUnlocked = !!(me && game.underdogOverrides?.[me.id]);
 
   const claim = (t) => {
-    if (!me || myUd || takenBy[t.id]) return;
+    if (!me || (myUd && !isAdminUnlocked) || (takenBy[t.id] && takenBy[t.id] !== me.id)) return;
     mutate((g) => {
-      if (g.underdog[me.id]) return;
-      if (Object.values(g.underdog).some((u) => u.teamId === t.id)) return; // raced
+      if (g.underdog[me.id] && !g.underdogOverrides?.[me.id]) return;
+      const takenPid = Object.entries(g.underdog).find(([, u]) => u.teamId === t.id)?.[0];
+      if (takenPid && takenPid !== me.id) return;
       g.underdog[me.id] = { teamId: t.id, at: Date.now() };
     });
   };
@@ -2101,6 +2103,11 @@ function UnderdogPage({ game, me, mutate }) {
   return (
     <div className="page">
       <div className="h-sec">Underdog hub</div>
+      {isAdminUnlocked && (
+        <div className="banner" style={{ borderColor: "var(--gold-bright)", color: "var(--gold-bright)", marginBottom: 10 }}>
+          🔓 Admin has unlocked your underdog pick — you can change it now
+        </div>
+      )}
       {myTeam ? (
         <Sticker style={{ marginBottom: 18 }}>
           <div className="jersey"><span className="stamp">UNDERDOG</span></div>
@@ -2127,16 +2134,19 @@ function UnderdogPage({ game, me, mutate }) {
       <div className="ud-grid">
         {eligible.map((t) => {
           const owner = takenBy[t.id] ? pById[takenBy[t.id]] : null;
+          const takenByOther = owner && owner.id !== me?.id;
           return (
-            <div key={t.id} className={`ud-card ${owner ? "taken" : ""}`}>
+            <div key={t.id} className={`ud-card ${takenByOther ? "taken" : ""}`}>
               <div className="fl"><Flag name={t.name} size={26} /></div>
               <div className="nm">{t.name}</div>
               {t.group && <div className="barlow muted" style={{ fontSize: 10 }}>Group {t.group}</div>}
-              {owner ? (
+              {takenByOther ? (
                 <div className="barlow muted" style={{ fontSize: 11, marginTop: 4 }}>🔒 {owner.avatar} {owner.name}</div>
               ) : (
                 <button className="btn btn-ghost" style={{ marginTop: 6, padding: "5px 10px", fontSize: 12 }}
-                  disabled={!me || !!myUd} onClick={() => claim(t)}>Claim</button>
+                  disabled={!me || (!!myUd && !isAdminUnlocked)} onClick={() => claim(t)}>
+                  {owner?.id === me?.id ? "Your pick" : "Claim"}
+                </button>
               )}
             </div>
           );
@@ -2541,6 +2551,9 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
       <div className="h-sec">Pick overrides (deadline exceptions)</div>
       <AdminOverridePanel game={game} mutate={mutate} />
 
+      <div className="h-sec">Underdog exceptions</div>
+      <AdminUnderdogOverridePanel game={game} mutate={mutate} />
+
       <div className="h-sec">Danger zone</div>
       <button className="btn btn-danger" onClick={() => { if (confirm("Wipe the ENTIRE game? This cannot be undone.")) mutate((g) => { Object.assign(g, JSON.parse(JSON.stringify(DEFAULT_GAME))); }); }}>Reset whole league</button>
     </div>
@@ -2607,6 +2620,57 @@ function AdminOverridePanel({ game, mutate }) {
         })}
       </div>
       <div className="note">"🔓 Unlock" lets <b>{player?.name || "the player"}</b> set their own pick from the Picks tab even though it's past the deadline. The team buttons set the pick directly on their behalf. Tap "🔓 Unlocked" again to re-lock.</div>
+    </div>
+  );
+}
+
+function AdminUnderdogOverridePanel({ game, mutate }) {
+  const [pid, setPid] = useState(game.players[0]?.id || "");
+  const [teamSel, setTeamSel] = useState("");
+  const eligible = game.teams.filter((t) => t.eligible).sort((a, b) => (a.group || "").localeCompare(b.group || "") || a.name.localeCompare(b.name));
+  const player = game.players.find((p) => p.id === pid);
+  const myUd = pid ? game.underdog[pid] : null;
+  const myTeam = myUd ? game.teams.find((t) => t.id === myUd.teamId) : null;
+  const isUnlocked = !!(game.underdogOverrides?.[pid]);
+
+  const toggleUnlock = () => mutate((g) => {
+    if (!g.underdogOverrides) g.underdogOverrides = {};
+    if (g.underdogOverrides[pid]) delete g.underdogOverrides[pid];
+    else g.underdogOverrides[pid] = true;
+  });
+
+  const setTheirPick = () => {
+    if (!teamSel || !pid) return;
+    mutate((g) => { g.underdog[pid] = { teamId: teamSel, at: Date.now() }; });
+    setTeamSel("");
+  };
+
+  return (
+    <div className="panel">
+      <div className="note" style={{ marginTop: 0 }}>
+        Unlock a player's underdog pick so they can change it themselves, or set it directly on their behalf.
+      </div>
+      <label className="barlow muted" style={{ fontSize: 12 }}>Player
+        <select style={{ width: "100%", marginTop: 4 }} value={pid} onChange={(e) => { setPid(e.target.value); setTeamSel(""); }}>
+          {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}</option>)}
+        </select>
+      </label>
+      <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span className="muted" style={{ fontSize: 13 }}>Current pick: <b style={{ color: myTeam ? "var(--gold-bright)" : "var(--muted)" }}>{myTeam ? `${myTeam.flag} ${myTeam.name}` : "none"}</b></span>
+        <button className={`btn ${isUnlocked ? "btn-gold" : "btn-ghost"}`} style={{ fontSize: 11, padding: "4px 8px" }} onClick={toggleUnlock}>
+          {isUnlocked ? "🔓 Unlocked" : "🔒 Locked"}
+        </button>
+      </div>
+      <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <label className="barlow muted" style={{ fontSize: 12, flex: 1 }}>Set pick directly
+          <select style={{ width: "100%", marginTop: 4 }} value={teamSel} onChange={(e) => setTeamSel(e.target.value)}>
+            <option value="">— choose a team —</option>
+            {eligible.map((t) => <option key={t.id} value={t.id}>{t.flag} {t.name}</option>)}
+          </select>
+        </label>
+        <button className="btn btn-gold" style={{ fontSize: 12, padding: "6px 12px", alignSelf: "flex-end" }} disabled={!teamSel} onClick={setTheirPick}>Set</button>
+      </div>
+      <div className="note">Toggling "🔓 Unlocked" lets <b>{player?.name || "this player"}</b> change their own underdog from the Underdog tab. Use the team selector to override their pick directly. Tap "🔓 Unlocked" again to re-lock.</div>
     </div>
   );
 }
@@ -3074,7 +3138,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v52</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v53</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
