@@ -469,6 +469,66 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .ko-team{flex:1;display:flex;align-items:center;gap:6px;font-family:'Bebas Neue';font-size:14px;min-width:0;}
 .ko-vs{font-family:'Bebas Neue';font-size:15px;color:var(--muted);flex:0 0 auto;}
 .ko-time{font-family:'Barlow Condensed';font-size:11px;letter-spacing:.04em;color:var(--muted);white-space:nowrap;}
+/* ── rich profile ── */
+.prof-modal{background:linear-gradient(180deg,#10141a,#0a0d12);border-color:rgba(201,168,76,.4);}
+.prof-hero{position:relative;padding:28px 20px 20px;border-radius:18px 18px 0 0;border-bottom:1px solid rgba(201,168,76,.2);overflow:hidden;text-align:center;}
+.prof-hero .close{position:absolute;top:12px;right:14px;background:rgba(0,0,0,.35);border:none;color:#fff;font-size:20px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;}
+.prof-emoji{font-size:72px;line-height:1;display:block;margin-bottom:10px;filter:drop-shadow(0 4px 14px rgba(0,0,0,.5));}
+.prof-name{font-family:'Bebas Neue';font-size:36px;letter-spacing:.05em;margin:4px 0;}
+.prof-tagline{font-style:italic;color:#d8d4c6;font-size:14px;margin-top:4px;}
+.prof-plays-like{display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:rgba(240,201,58,.1);border:1px solid rgba(240,201,58,.3);border-radius:999px;padding:4px 12px;font-family:'Barlow Condensed';font-size:13px;letter-spacing:.08em;color:var(--gold-bright);}
+.prof-rank-badge{display:inline-flex;align-items:center;gap:4px;margin-top:8px;background:rgba(0,0,0,.35);border:1px solid rgba(201,168,76,.4);border-radius:999px;padding:3px 12px;font-family:'Bebas Neue';font-size:16px;color:var(--gold-bright);}
+.prof-bio{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.5;font-style:italic;}
+.prof-section{padding:14px 18px;border-top:1px solid rgba(255,255,255,.06);}
+.prof-sec-label{font-family:'Barlow Condensed';letter-spacing:.15em;text-transform:uppercase;font-size:11px;color:var(--muted);margin-bottom:10px;}
+/* accuracy ring */
+.acc-ring-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.acc-ring{position:relative;width:110px;height:110px;border-radius:50%;}
+.acc-ring-inner{position:absolute;inset:12px;border-radius:50%;background:#0a0d12;display:flex;align-items:center;justify-content:center;}
+.acc-pct{font-family:'Bebas Neue';font-size:30px;color:var(--gold-bright);}
+.acc-sub{font-family:'Barlow Condensed';font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+/* pick heatmap */
+.heatmap{display:flex;flex-wrap:wrap;gap:4px;}
+.hm-sq{width:18px;height:18px;border-radius:4px;cursor:pointer;transition:transform .1s;}
+.hm-sq:hover{transform:scale(1.3);}
+.hm-sq.hit{background:#16c264;box-shadow:0 0 6px rgba(22,194,100,.5);}
+.hm-sq.miss{background:var(--danger);box-shadow:0 0 6px rgba(230,57,70,.3);}
+.hm-sq.no-pick{background:#1a2e22;border:1px solid rgba(138,170,150,.2);}
+.hm-tip{font-family:'Barlow Condensed';font-size:12px;color:var(--muted);margin-top:6px;letter-spacing:.03em;min-height:16px;}
+/* signature win */
+.sig-win{background:linear-gradient(135deg,rgba(212,175,55,.14),rgba(22,194,100,.1));border:1px solid rgba(212,175,55,.4);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;}
+.sig-trophy-ico{font-size:32px;}
+.sig-teams{flex:1;}
+.sig-matchup{font-family:'Bebas Neue';font-size:18px;letter-spacing:.04em;display:flex;align-items:center;gap:8px;}
+.sig-pts{font-family:'Bebas Neue';font-size:22px;color:var(--gold-bright);}
+/* badge cabinet */
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;}
+.badge{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 10px 8px;border-radius:12px;border:1px solid;min-width:60px;text-align:center;}
+.badge.earned{background:rgba(212,175,55,.12);border-color:rgba(212,175,55,.4);}
+.badge.locked{background:rgba(20,30,24,.5);border-color:#232326;opacity:.5;filter:grayscale(.6);}
+.badge-ico{font-size:24px;line-height:1;}
+.badge-name{font-family:'Barlow Condensed';font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+/* H2H table */
+.h2h-tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.h2h-tbl th{font-family:'Barlow Condensed';letter-spacing:.12em;text-transform:uppercase;font-size:10px;color:var(--muted);text-align:right;padding:3px 6px;font-weight:600;}
+.h2h-tbl th:first-child{text-align:left;}
+.h2h-tbl td{padding:5px 6px;border-top:1px dashed rgba(138,170,150,.12);text-align:right;}
+.h2h-tbl td:first-child{text-align:left;}
+.h2h-tbl .h2h-w{color:#16c264;font-family:'Bebas Neue';font-size:15px;}
+.h2h-tbl .h2h-l{color:var(--danger);font-family:'Bebas Neue';font-size:15px;}
+.h2h-tbl .h2h-d{color:var(--muted);font-family:'Bebas Neue';font-size:15px;}
+/* gap to next */
+.gap-next{background:rgba(79,195,247,.08);border:1px solid rgba(79,195,247,.25);border-radius:10px;padding:10px 14px;font-family:'Barlow Condensed';letter-spacing:.06em;font-size:14px;color:var(--sky);text-align:center;}
+/* form trail big */
+.form-big{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.fb-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#06140c;}
+/* profile page */
+.prof-page{max-width:640px;margin:0 auto;padding:12px 16px 100px;}
+/* emoji grid */
+.emoji-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.emoji-opt{font-size:24px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid transparent;cursor:pointer;background:#0a1810;transition:border-color .12s,background .12s;}
+.emoji-opt.on{border-color:var(--gold-bright);background:rgba(240,201,58,.15);}
+.emoji-opt:hover{border-color:rgba(201,168,76,.5);}
 `;
 
 /* ── scoring tables ─────────────────────────────────────────── */
@@ -3136,103 +3196,294 @@ function playerStats(game, pid) {
 
 const CARD_COLORS = ["#c9a84c", "#4fc3f7", "#e63946", "#2d6e47", "#9b59b6", "#e67e22", "#ffffff", "#ff5fa2"];
 
-function ProfileModal({ game, pid, meId, onClose, mutate }) {
+const PICTURE_EMOJIS = [...'⚽🏆🥅🧤👟🎽🏅🎯🔥💪👑🌟💀🤡🎪🎭🎨🎬🔮🎲🃏🎰💎💰🤑💸🏦🎖️🎗️🎀🎊🎉🎈🎁🎠🎡🎢🎭'];
+
+function computeBadges(game, pid, standings, st) {
+  const rank = standings.findIndex((r) => r.p.id === pid) + 1;
+  const streak = streakFor(game, pid);
+  const finMatches = game.matches.filter((m) => m.status === "finished");
+  let contrarianCount = 0;
+  for (const m of finMatches) {
+    const pk = game.picks[m.id]?.[pid];
+    if (!pk || pk.pred !== matchResult(m)) continue;
+    const split = pickSplit(game, m);
+    if (split.total < 2) continue;
+    const myCount = split[pk.pred] || 0;
+    const otherMax = Math.max(...["A", "B", "D"].filter((x) => x !== pk.pred).map((x) => split[x] || 0));
+    if (myCount < otherMax) contrarianCount++;
+  }
+  return [
+    { emoji: "🔥", name: "Heater", earned: streak >= 3 },
+    { emoji: "🎯", name: "Sniper", earned: st.accuracy >= 70 && st.played >= 5 },
+    { emoji: "🃏", name: "Joker", earned: st.accuracy < 35 && st.played >= 5 },
+    { emoji: "👑", name: "Leader", earned: rank === 1 },
+    { emoji: "🐉", name: "Underdawg", earned: !!game.underdog[pid] },
+    { emoji: "🎖️", name: "Veteran", earned: finMatches.length > 0 && (st.played / finMatches.length) >= 0.9 },
+    { emoji: "💎", name: "Contrarian", earned: contrarianCount >= 3 },
+  ];
+}
+
+function AccRing({ pct }) {
+  const [disp, setDisp] = useState(0);
+  useEffect(() => {
+    let raf;
+    let start = null;
+    const duration = 900;
+    const step = (ts) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisp(Math.round(pct * eased));
+      if (progress < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [pct]);
+  return (
+    <div className="acc-ring" style={{ background: `conic-gradient(var(--gold) ${disp * 3.6}deg, #1a3025 0deg)` }}>
+      <div className="acc-ring-inner">
+        <div><div className="acc-pct">{pct}%</div><div className="acc-sub">accuracy</div></div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileBody({ game, pid, meId, onClose, mutate, isPage }) {
   const p = game.players.find((x) => x.id === pid);
   const [editing, setEditing] = useState(false);
+  const [hmTip, setHmTip] = useState("");
   if (!p) return null;
+
   const st = playerStats(game, pid);
   const isMe = pid === meId;
   const accent = p.color || "#c9a84c";
-  const rank = computeStandings(game).sort((a, b) => b.total - a.total).findIndex((r) => r.p.id === pid) + 1;
-
+  const standings = computeStandings(game).sort((a, b) => b.total - a.total);
+  const rank = standings.findIndex((r) => r.p.id === pid) + 1;
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
   const saveField = (field, val) => mutate((g) => { const gp = g.players.find((x) => x.id === pid); if (gp) gp[field] = val; });
 
+  const finMatches = game.matches.filter((m) => m.status === "finished").sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+
+  const bigWins = [];
+  for (const m of finMatches) {
+    const pk = game.picks[m.id]?.[pid];
+    if (!pk) continue;
+    const pts = pickPoints(m, pk);
+    if (pts > 0) bigWins.push({ m, pts });
+  }
+  bigWins.sort((a, b) => b.pts - a.pts);
+  const sigWin = bigWins[0] || null;
+
+  const badges = computeBadges(game, pid, standings, st);
+  const form8 = formTrail(game, pid, 8);
+  const nextRankRow = rank > 1 ? standings[rank - 2] : null;
+  const myRow = standings[rank - 1];
+  const gap = nextRankRow && myRow ? nextRankRow.total - myRow.total : 0;
+
   return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-hero" style={{ background: `linear-gradient(180deg, ${accent}22, transparent)` }}>
-          <button className="close" onClick={onClose} aria-label="close">×</button>
-          <div className="modal-avatar">{p.mascot ? <Mascot id={p.mascot} pose={rank === 1 ? "celebrate" : "idle"} size={72} /> : p.avatar}</div>
-          <div className="modal-name" style={{ color: accent }}>{p.name}</div>
-          <div className="modal-sub">{p.country ? `Backing ${p.country}` : "World Cup 2026"} · Rank #{rank || "—"}</div>
-          {p.tagline && <div className="modal-tag">“{p.tagline}”</div>}
+    <>
+      {/* HERO */}
+      <div className="prof-hero" style={{ background: `linear-gradient(180deg, ${accent}22, transparent)`, ...(isPage ? { borderRadius: 14 } : {}) }}>
+        {!isPage && <button className="close" onClick={onClose} aria-label="close">×</button>}
+        <div className="prof-emoji">
+          {p.pictureEmoji || (p.mascot ? <Mascot id={p.mascot} pose={rank === 1 ? "celebrate" : "idle"} size={72} /> : p.avatar)}
         </div>
-
-        <div className="stat-grid">
-          <div className="stat-box"><div className="v">{st.total}</div><div className="l">Total pts</div></div>
-          <div className="stat-box"><div className="v">{st.accuracy}%</div><div className="l">Accuracy</div></div>
-          <div className="stat-box"><div className="v">{st.streak}🔥</div><div className="l">Streak</div></div>
-          <div className="stat-box"><div className="v">{st.correct}/{st.played}</div><div className="l">Correct picks</div></div>
-          <div className="stat-box"><div className="v">{st.udPts}</div><div className="l">Underdog pts</div></div>
-          <div className="stat-box"><div className="v">{st.f8Pts}</div><div className="l">Final 8 pts</div></div>
+        <div className="prof-name" style={{ color: accent }}>{p.name}</div>
+        {p.tagline && <div className="prof-tagline">"{p.tagline}"</div>}
+        {p.resembles && (
+          <div className="prof-plays-like">Plays like: {p.resembles}&nbsp;<Flag name={p.resembles} size={14} /></div>
+        )}
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+          <span className="prof-rank-badge">#{rank || "—"}{rank === 1 ? " 👑" : rank === 2 ? " 🥈" : rank === 3 ? " 🥉" : ""}</span>
+          <span className="prof-rank-badge" style={{ borderColor: "rgba(22,194,100,.4)", color: "#7fe8a8" }}>{st.total} pts</span>
         </div>
+        {p.profileBio && <div className="prof-bio">{p.profileBio}</div>}
+        {p.mascot && p.pictureEmoji && <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}><Mascot id={p.mascot} pose="idle" size={38} /></div>}
+      </div>
 
-        <div style={{ padding: "0 18px 10px" }}>
-          <div className="modal-sub" style={{ marginBottom: 4 }}>Picks</div>
-          <div className="note" style={{ marginTop: 0 }}>
-            Underdog: {st.udTeam ? `${st.udTeam.flag} ${st.udTeam.name}` : "—"} · Final 8: {st.f8Team ? `${st.f8Team.flag} ${st.f8Team.name}` : "—"}
+      {/* ACCURACY RING + QUICK STATS */}
+      <div className="prof-section">
+        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <AccRing pct={st.accuracy} />
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <div className="stat-box"><div className="v">{st.streak}🔥</div><div className="l">Streak</div></div>
+            <div className="stat-box"><div className="v">{st.correct}/{st.played}</div><div className="l">Correct</div></div>
+            <div className="stat-box"><div className="v">{st.udPts}</div><div className="l">UD pts</div></div>
+            <div className="stat-box"><div className="v">{st.f8Pts}</div><div className="l">F8 pts</div></div>
           </div>
-          {st.best.length > 0 && <>
-            <div className="modal-sub" style={{ margin: "10px 0 4px" }}>Best calls</div>
-            {st.best.map((b, i) => <div key={i} className="payout-win" style={{ textAlign: "left" }}>✓ {b}</div>)}
-          </>}
         </div>
+      </div>
 
-        {!isMe && meId && (() => {
-          const me_ = game.players.find((x) => x.id === meId);
-          if (!me_) return null;
-          const h2h = headToHead(game, meId, pid);
-          if (h2h.both === 0) return <div style={{ padding: "0 18px 10px" }}><div className="modal-sub" style={{ marginBottom: 4 }}>Head-to-head</div><div className="note" style={{ marginTop: 0 }}>No shared finished picks yet — the rivalry starts soon.</div></div>;
-          const lead = h2h.aWins > h2h.bWins ? "you" : h2h.bWins > h2h.aWins ? p.name : null;
-          return (
-            <div style={{ padding: "0 18px 12px" }}>
-              <div className="modal-sub" style={{ marginBottom: 6 }}>⚔️ You vs {p.name}</div>
-              <div className="h2h-score">
-                <div className="h2h-side"><div className="h2h-num" style={{ color: "var(--gold-bright)" }}>{h2h.aWins}</div><div className="h2h-lab">YOU</div></div>
-                <div className="h2h-mid"><div className="h2h-vs">—</div>{h2h.ties > 0 && <div className="h2h-ties">{h2h.ties} tied</div>}</div>
-                <div className="h2h-side"><div className="h2h-num">{h2h.bWins}</div><div className="h2h-lab">{p.name.toUpperCase().slice(0, 8)}</div></div>
+      {/* FORM TRAIL — last 8 */}
+      {form8.length > 0 && (
+        <div className="prof-section">
+          <div className="prof-sec-label">Form — last {form8.length}</div>
+          <div className="form-big">
+            {form8.map((r, i) => <span key={i} className={`fb-dot ${r === "W" ? "ft-w" : "ft-l"}`}>{r}</span>)}
+          </div>
+        </div>
+      )}
+
+      {/* PICK HEATMAP */}
+      {finMatches.length > 0 && (
+        <div className="prof-section">
+          <div className="prof-sec-label">Tournament map — {finMatches.length} matches</div>
+          <div className="heatmap">
+            {finMatches.map((m) => {
+              const pk = game.picks[m.id]?.[pid];
+              const res = matchResult(m);
+              const cls = !pk ? "no-pick" : pk.pred === res ? "hit" : "miss";
+              const a = tById[m.teamA], b = tById[m.teamB];
+              const lbl = a && b ? `${a.name} ${m.scoreA}–${m.scoreB} ${b.name}${pk ? (pk.pred === res ? " ✓" : " ✗") : " (no pick)"}` : "";
+              return <span key={m.id} className={`hm-sq ${cls}`} onMouseEnter={() => setHmTip(lbl)} onMouseLeave={() => setHmTip("")} title={lbl} />;
+            })}
+          </div>
+          <div className="hm-tip" style={{ minHeight: 16 }}>{hmTip}</div>
+        </div>
+      )}
+
+      {/* SIGNATURE WIN */}
+      {sigWin && (() => {
+        const a = tById[sigWin.m.teamA], b = tById[sigWin.m.teamB];
+        return (
+          <div className="prof-section">
+            <div className="prof-sec-label">Best call</div>
+            <div className="sig-win">
+              <span className="sig-trophy-ico">🏆</span>
+              <div className="sig-teams">
+                <div className="sig-matchup">
+                  {a && <Flag name={a.name} size={16} />}
+                  <span style={{ fontSize: 14 }}>{a?.name} {sigWin.m.scoreA}–{sigWin.m.scoreB} {b?.name}</span>
+                  {b && <Flag name={b.name} size={16} />}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{STAGE_LABEL[sigWin.m.stage] || sigWin.m.stage}</div>
               </div>
-              <div className="note" style={{ textAlign: "center", marginTop: 4 }}>
-                {lead === "you" ? "You're ahead in this rivalry 😎" : lead ? `${p.name} has your number… for now.` : "Dead even — settle it on the pitch."} ({h2h.both} shared picks)
-              </div>
+              <div className="sig-pts">+{sigWin.pts}</div>
             </div>
-          );
-        })()}
-
-        {isMe && (
-          <div style={{ borderTop: "1px solid #232326", paddingTop: 6 }}>
-            {!editing ? (
-              <div style={{ padding: "6px 18px 18px" }}>
-                <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => setEditing(true)}>✎ Customise my profile</button>
-              </div>
-            ) : (
-              <div className="edit-row" style={{ paddingBottom: 18 }}>
-                <label>Avatar emoji</label>
-                <input defaultValue={p.avatar} maxLength={4} onBlur={(e) => saveField("avatar", e.target.value || "⚽")} />
-                <label>Backing (nation / flavour)</label>
-                <input defaultValue={p.country || ""} onBlur={(e) => saveField("country", e.target.value)} />
-                <label>Tagline / trash talk</label>
-                <input defaultValue={p.tagline || ""} maxLength={80} placeholder="say something..." onBlur={(e) => saveField("tagline", e.target.value)} />
-                <label>Pick your legend mascot</label>
-                <div className="mascot-pick">
-                  <button className={`mascot-opt ${!p.mascot ? "on" : ""}`} onClick={() => saveField("mascot", "")}>None<br/><span style={{ fontSize: 22 }}>{p.avatar}</span></button>
-                  {MASCOT_LIST.map((mc) => (
-                    <button key={mc.id} className={`mascot-opt ${p.mascot === mc.id ? "on" : ""}`} onClick={() => saveField("mascot", mc.id)}>
-                      <Mascot id={mc.id} pose="idle" size={40} />
-                      <span className="mo-name">{mc.name.replace("The ", "")}</span>
-                    </button>
-                  ))}
-                </div>
-                <label>Card colour</label>
-                <div className="swatches">
-                  {CARD_COLORS.map((c) => <span key={c} className={`swatch ${(p.color || "#c9a84c") === c ? "on" : ""}`} style={{ background: c }} onClick={() => saveField("color", c)} />)}
-                </div>
-                <button className="btn btn-gold" style={{ width: "100%", marginTop: 12 }} onClick={() => setEditing(false)}>Done</button>
-              </div>
-            )}
           </div>
+        );
+      })()}
+
+      {/* BADGE CABINET */}
+      <div className="prof-section">
+        <div className="prof-sec-label">Badge cabinet</div>
+        <div className="badge-row">
+          {badges.map((b) => (
+            <div key={b.name} className={`badge ${b.earned ? "earned" : "locked"}`} title={b.earned ? `${b.name}: Earned!` : `${b.name}: Not yet`}>
+              <span className="badge-ico">{b.emoji}</span>
+              <span className="badge-name">{b.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* H2H TABLE */}
+      <div className="prof-section">
+        <div className="prof-sec-label">Head-to-head record</div>
+        {game.players.filter((op) => op.id !== pid).length === 0 ? (
+          <div className="note" style={{ marginTop: 0 }}>No opponents yet.</div>
+        ) : (
+          <table className="h2h-tbl">
+            <thead><tr><th>vs</th><th>W</th><th>D</th><th>L</th><th>N</th></tr></thead>
+            <tbody>
+              {game.players.filter((op) => op.id !== pid).map((op) => {
+                const h = headToHead(game, pid, op.id);
+                if (h.both === 0) return (
+                  <tr key={op.id}><td>{op.avatar} {op.name}</td><td colSpan={4} style={{ color: "var(--muted)", fontSize: 11 }}>—</td></tr>
+                );
+                return (
+                  <tr key={op.id}>
+                    <td>{op.avatar} {op.name}</td>
+                    <td className="h2h-w">{h.aWins}</td>
+                    <td className="h2h-d">{h.ties}</td>
+                    <td className="h2h-l">{h.bWins}</td>
+                    <td style={{ color: "var(--muted)", fontSize: 11 }}>{h.both}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
+
+      {/* GAP TO NEXT RANK */}
+      {rank > 1 && nextRankRow && gap > 0 && (
+        <div className="prof-section">
+          <div className="gap-next">+{gap} pts to overtake {nextRankRow.p.avatar} {nextRankRow.p.name}</div>
+        </div>
+      )}
+
+      {/* EDIT */}
+      {isMe && (
+        <div style={{ borderTop: "1px solid #232326", paddingTop: 6 }}>
+          {!editing ? (
+            <div style={{ padding: "6px 18px 18px" }}>
+              <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => setEditing(true)}>✎ Customise my profile</button>
+            </div>
+          ) : (
+            <div className="edit-row" style={{ paddingBottom: 18 }}>
+              <label>Profile picture emoji</label>
+              <div className="emoji-grid">
+                {PICTURE_EMOJIS.map((em) => (
+                  <span key={em} className={`emoji-opt ${p.pictureEmoji === em ? "on" : ""}`} onClick={() => saveField("pictureEmoji", em)}>{em}</span>
+                ))}
+              </div>
+              <label>Avatar emoji (fallback)</label>
+              <input defaultValue={p.avatar} maxLength={4} onBlur={(e) => saveField("avatar", e.target.value || "⚽")} />
+              <label>Backing (nation / flavour)</label>
+              <input defaultValue={p.country || ""} onBlur={(e) => saveField("country", e.target.value)} />
+              <label>Tagline / trash talk</label>
+              <input defaultValue={p.tagline || ""} maxLength={80} placeholder="say something..." onBlur={(e) => saveField("tagline", e.target.value)} />
+              <label>Extended bio (150 chars)</label>
+              <input defaultValue={p.profileBio || ""} maxLength={150} placeholder="Tell us who you really are..." onBlur={(e) => saveField("profileBio", e.target.value)} />
+              <label>Plays like (WC 2026 player name)</label>
+              <input defaultValue={p.resembles || ""} maxLength={60} placeholder="e.g. Mbappé, De Bruyne..." onBlur={(e) => saveField("resembles", e.target.value)} />
+              <label>Pick your legend mascot</label>
+              <div className="mascot-pick">
+                <button className={`mascot-opt ${!p.mascot ? "on" : ""}`} onClick={() => saveField("mascot", "")}>None<br/><span style={{ fontSize: 22 }}>{p.avatar}</span></button>
+                {MASCOT_LIST.map((mc) => (
+                  <button key={mc.id} className={`mascot-opt ${p.mascot === mc.id ? "on" : ""}`} onClick={() => saveField("mascot", mc.id)}>
+                    <Mascot id={mc.id} pose="idle" size={40} />
+                    <span className="mo-name">{mc.name.replace("The ", "")}</span>
+                  </button>
+                ))}
+              </div>
+              <label>Card colour</label>
+              <div className="swatches">
+                {CARD_COLORS.map((c) => <span key={c} className={`swatch ${(p.color || "#c9a84c") === c ? "on" : ""}`} style={{ background: c }} onClick={() => saveField("color", c)} />)}
+              </div>
+              <button className="btn btn-gold" style={{ width: "100%", marginTop: 12 }} onClick={() => setEditing(false)}>Done</button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ProfileModal({ game, pid, meId, onClose, mutate }) {
+  const p = game.players.find((x) => x.id === pid);
+  if (!p) return null;
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal prof-modal" onClick={(e) => e.stopPropagation()}>
+        <ProfileBody game={game} pid={pid} meId={meId} onClose={onClose} mutate={mutate} isPage={false} />
+      </div>
+    </div>
+  );
+}
+
+function ProfilePage({ game, me, mutate }) {
+  if (!me) return (
+    <div className="prof-page" style={{ textAlign: "center", paddingTop: 40 }}>
+      <div style={{ fontSize: 48 }}>👤</div>
+      <div className="bebas" style={{ fontSize: 24, marginTop: 12, color: "var(--gold-bright)" }}>Select your player above</div>
+      <div className="note" style={{ marginTop: 8 }}>Pick your name from the dropdown at the top to see your full profile.</div>
+    </div>
+  );
+  return (
+    <div className="prof-page">
+      <ProfileBody game={game} pid={me.id} meId={me.id} onClose={null} mutate={mutate} isPage />
     </div>
   );
 }
@@ -3571,7 +3822,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v55</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v56</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -3595,7 +3846,7 @@ export default function App() {
   };
 
   const ALL_TABS = [
-    ["today", "📅", "Today"], ["picks", "✅", "Picks"], ["war", "⚔️", "War Room"], ["scores", "📺", "Scores"],
+    ["today", "📅", "Today"], ["picks", "✅", "Picks"], ["profile", "👤", "Profile"], ["war", "⚔️", "War Room"], ["scores", "📺", "Scores"],
     ["board", "🏆", "Table"], ["stats", "🎯", "Stats"], ["shame", "💀", "Shame"], ["underdog", "🐉", "Underdog"],
     ["final8", "🎯", "Final 8"], ["prizes", "💰", "Prizes"], ["home", "🏟️", "Home"], ["admin", "🛠️", "Admin"],
   ];
@@ -3607,7 +3858,7 @@ export default function App() {
       {installHint && (
         <div style={{ position: "fixed", bottom: 78, left: 12, right: 12, zIndex: 210, background: "linear-gradient(135deg,#2a2008,#1c3427)", border: "1px solid var(--gold)", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 0 24px rgba(240,201,58,.4)" }}>
           <span style={{ fontSize: 22 }}>📲</span>
-          <span style={{ fontSize: 13, flex: 1 }}>Install the app: tap <b>Share</b> then <b>“Add to Home Screen”</b> for fullscreen + alerts.</span>
+          <span style={{ fontSize: 13, flex: 1 }}>Install the app: tap <b>Share</b> then <b>"Add to Home Screen"</b> for fullscreen + alerts.</span>
           <button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => { setInstallHint(false); try { localStorage.setItem("wc26-install-hint", "1"); } catch (e) {} }}>Got it</button>
         </div>
       )}
@@ -3663,6 +3914,7 @@ export default function App() {
       {tab === "home" && <HomePage game={game} me={me} go={setTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
       {tab === "today" && <TodayPage game={game} me={me} go={setTab} />}
       {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} isAdmin={isAdmin} />}
+      {tab === "profile" && <ProfilePage game={game} me={me} mutate={mutate} />}
       {tab === "scores" && <LiveScoresPage game={game} onRefresh={() => pullFixtures(true)} />}
       {tab === "war" && <WarRoom game={game} me={me} mutate={mutate} onRefresh={() => pullFixtures(true)} />}
       {tab === "stats" && <StatsPage game={game} me={me} mutate={mutate} />}
