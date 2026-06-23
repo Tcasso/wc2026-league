@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
-const APP_VERSION = "v61";
+const APP_VERSION = "v62";
 
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
@@ -46,7 +46,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .wc-app{
   min-height:100vh; color:var(--white); font-family:'Inter',sans-serif;
   background:
-    linear-gradient(180deg, rgba(6,20,12,0.82) 0%, rgba(6,20,12,0.75) 50%, rgba(6,20,12,0.92) 100%),
+    linear-gradient(180deg, rgba(6,20,12,0.88) 0%, rgba(6,20,12,0.84) 50%, rgba(6,20,12,0.94) 100%),
     url('/stadium-bg.jpg') center center / cover fixed no-repeat;
   padding-bottom:0;
 }
@@ -104,17 +104,74 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .content-wrap{position:relative;z-index:10;padding-bottom:150px;}
 .more-btn-globe{position:fixed;bottom:30px;left:16px;z-index:45;background:rgba(7,22,14,.85);border:1px solid rgba(22,194,100,.45);border-radius:12px;width:46px;height:38px;font-size:22px;line-height:1;color:var(--gold-bright);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.45);}
 .more-btn-globe:active{transform:scale(.92);}
-/* globe sphere — real pitch aerial mapped onto a CSS 3D sphere illusion */
-.globe-sphere{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:280px;height:280px;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.15), transparent 50%),url('/pitch-aerial.jpg') center / cover;
-  background-position:center, 0% center;
-  box-shadow:inset -20px -20px 60px rgba(0,0,0,0.7),inset 10px 10px 40px rgba(255,255,255,0.08),0 0 60px rgba(22,194,100,0.3),0 0 120px rgba(22,194,100,0.12);
+/* globe sphere — a real photo of Earth from space wrapped onto a CSS 3D sphere illusion */
+.globe-sphere{position:fixed;left:50%;top:45%;
+  transform:translate(-50%,-50%);
+  width:var(--globe-size,280px);height:var(--globe-size,280px);
+  border-radius:50%;
+  background-image:url('/earth-globe.jpg');
+  background-size:200% 100%;
+  background-position:0% center;
+  box-shadow:
+    inset -30px -20px 80px rgba(0,0,0,0.85),
+    inset 8px 8px 30px rgba(255,255,255,0.06),
+    0 0 50px rgba(22,194,100,0.2),
+    0 0 100px rgba(22,194,100,0.08),
+    0 20px 60px rgba(0,0,0,0.6);
+  animation:globeSpin 25s linear infinite;
   overflow:hidden;pointer-events:none;}
+@keyframes globeSpin{
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
 .globe-sphere::before{content:'';position:absolute;inset:0;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.12) 0%, transparent 40%, rgba(0,0,0,0.3) 100%);}
-.globe-sphere::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(22,194,100,0.4);box-shadow:0 0 30px rgba(22,194,100,0.2);}
-.globe-atmosphere{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:330px;height:330px;border-radius:50%;
-  background:radial-gradient(circle, transparent 48%, rgba(22,194,100,0.08) 55%, transparent 70%);pointer-events:none;}
+  background:radial-gradient(circle at 32% 28%,
+    rgba(255,255,255,0.13) 0%,
+    rgba(255,255,255,0.04) 25%,
+    transparent 55%,
+    rgba(0,0,0,0.5) 100%);
+  pointer-events:none;}
+.globe-sphere::after{content:'';position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,
+    transparent 55%,
+    rgba(0,0,0,0.7) 80%,
+    rgba(0,0,0,0.92) 100%);
+  pointer-events:none;}
+.globe-atmosphere{position:fixed;left:50%;top:45%;
+  transform:translate(-50%,-50%);
+  width:calc(var(--globe-size,280px) * 1.22);
+  height:calc(var(--globe-size,280px) * 1.22);
+  border-radius:50%;
+  background:radial-gradient(circle,
+    transparent 44%,
+    rgba(100,180,255,0.06) 50%,
+    rgba(22,194,100,0.05) 58%,
+    transparent 68%);
+  pointer-events:none;
+  animation:atmospherePulse 4s ease-in-out infinite;}
+@keyframes atmospherePulse{
+  0%,100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+.globe-zone-hint{position:absolute;
+  bottom:calc(var(--globe-size,280px) / 2 + 20px);
+  left:50%;transform:translateX(-50%);
+  font-family:'Bebas Neue';font-size:18px;
+  letter-spacing:.1em;color:var(--gold-bright);
+  text-shadow:0 0 12px rgba(240,201,58,0.6);
+  pointer-events:none;
+  animation:hintAppear .2s ease;
+  white-space:nowrap;z-index:30;}
+@keyframes hintAppear{ from { opacity: 0; transform: translateX(-50%) translateY(4px); } }
+.globe-back-btn{position:fixed;bottom:28px;right:16px;z-index:65;
+  background:linear-gradient(135deg, rgba(13,46,28,.92), rgba(7,22,14,.95));
+  border:1px solid rgba(22,194,100,.5);
+  border-radius:999px;padding:8px 16px;
+  font-family:'Barlow Condensed';font-size:14px;
+  letter-spacing:.1em;color:var(--gold-bright);
+  box-shadow:0 4px 16px rgba(0,0,0,.4), 0 0 12px rgba(22,194,100,.2);
+  cursor:pointer;}
+.globe-back-btn:active{transform:scale(.94);}
 
 .page{max-width:880px;margin:0 auto;padding:20px 16px;}
 .h-sec{font-family:'Bebas Neue';font-size:26px;letter-spacing:.08em;margin:26px 0 12px;
@@ -136,7 +193,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
   repeating-linear-gradient(115deg, var(--pitch-green) 0 70px, var(--pitch-light) 70px 140px);
   border:1px solid rgba(201,168,76,.45);box-shadow:inset 0 0 60px rgba(0,0,0,.5),0 8px 30px rgba(0,0,0,.4);}
 .hero-glow{position:absolute;inset:0;background:radial-gradient(circle at 50% 10%, rgba(240,201,58,.3), transparent 55%);animation:auraPulse 3s ease-in-out infinite;pointer-events:none;}
-.hero-trophy-img{position:absolute;right:-10px;bottom:0;height:90%;width:auto;object-fit:contain;opacity:.18;pointer-events:none;mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);-webkit-mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);}
+.hero-trophy-img{position:absolute;right:-10px;bottom:0;height:90%;width:auto;object-fit:contain;opacity:.10;pointer-events:none;mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);-webkit-mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);}
 .hero-kicker{position:relative;color:var(--gold-bright);font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:6px;opacity:.9;}
 .hero-mega{position:relative;font-family:'Bebas Neue';font-size:clamp(44px,12vw,92px);line-height:.86;letter-spacing:.02em;
   background:linear-gradient(100deg,#fff 20%,var(--gold-bright) 45%,#fff 70%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -154,7 +211,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .hero .pot .amt{font-family:'Bebas Neue';font-size:34px;color:var(--gold-bright);}
 
 /* cards & panels */
-.panel{background:linear-gradient(160deg,rgba(18,58,35,.78),rgba(9,26,16,.85)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
+.panel{background:linear-gradient(160deg,rgba(18,58,35,.88),rgba(9,26,16,.93)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
 @property --hue{syntax:'<angle>';initial-value:0deg;inherits:false;}
 @keyframes hueRotate{to{--hue:360deg}}
 .panel:hover{border-color:hsl(var(--hue),55%,65%);animation:hueRotate 8s linear;}
@@ -170,7 +227,7 @@ input,select{background:#0a1810;color:var(--white);border:1px solid rgba(138,170
 input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline-offset:1px;}
 
 /* match scoreboard card */
-.match{background:linear-gradient(180deg,rgba(16,52,31,.88),rgba(9,26,16,.92)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(6px);border:1px solid rgba(22,194,100,.24);
+.match{background:linear-gradient(180deg,rgba(16,52,31,.92),rgba(9,26,16,.95)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(6px);border:1px solid rgba(22,194,100,.24);
   border-radius:14px;padding:14px;margin-bottom:14px;position:relative;}
 .match .meta{display:flex;justify-content:space-between;align-items:center;font-family:'Barlow Condensed';
   font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
@@ -278,7 +335,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .motd-score{flex:0 0 auto;padding:0 6px;}
 .motd-split{text-align:center;font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.03em;}
 .motd-cta{text-align:center;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.1em;color:var(--gold-bright);margin-top:8px;text-transform:uppercase;}
-.warcard{background:linear-gradient(160deg,rgba(40,16,18,.92),rgba(18,9,10,.95)),url('/crowd-wc.jpg') center top / cover;border:1px solid rgba(230,57,70,.4);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.warcard{background:linear-gradient(160deg,rgba(40,16,18,.95),rgba(18,9,10,.97)),url('/crowd-wc.jpg') center top / cover;border:1px solid rgba(230,57,70,.4);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
 .war-live{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.14em;color:#ff6b78;margin-bottom:8px;}
 .war-score{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;}
 .war-team{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-family:'Bebas Neue';font-size:15px;text-align:center;line-height:1;}
@@ -372,7 +429,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 @keyframes trophySway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
 .calledit{margin-top:10px;text-align:center;font-family:'Bebas Neue';letter-spacing:.1em;font-size:19px;color:var(--gold-bright);animation:calledIn .6s cubic-bezier(.2,1.4,.4,1), goldPulse 2s ease-in-out infinite;}
 @keyframes calledIn{0%{transform:translateY(10px) scale(.8);opacity:0}100%{transform:none;opacity:1}}
-.payout{position:fixed;inset:0;z-index:300;background:linear-gradient(180deg,rgba(5,8,6,.88),rgba(5,8,6,.94)),url('/stadium-celebration.jpg') center / cover fixed;backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
+.payout{position:fixed;inset:0;z-index:300;background:linear-gradient(180deg,rgba(5,8,6,.92),rgba(5,8,6,.96)),url('/stadium-celebration.jpg') center / cover fixed;backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
 @keyframes payIn{from{opacity:0}to{opacity:1}}
 .payout-card{text-align:center;padding:32px 40px;animation:cardPop .5s cubic-bezier(.2,1.5,.4,1);}
 @keyframes cardPop{0%{transform:scale(.65);opacity:0}100%{transform:scale(1);opacity:1}}
@@ -3870,8 +3927,11 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       morph: mini ? 1 : 0, morphV: 0,
       flashTab: null, flashUntil: 0, t: 0, trail: [],
       cx: 0, cy: 0, R: 1,
+      bgOffset: 0, bgVel: 0, lbgd: 0, bgManual: false, bgIdleBase: 0, bgIdleStart: 0,
+      lastTapTime: 0, lastTapTab: null, hintTab: null,
     };
   }
+  const [hintZone, setHintZone] = useState(null);
   const propsRef = useRef({ mini, activeTab, onSelect });
   propsRef.current = { mini, activeTab, onSelect };
 
@@ -3926,24 +3986,33 @@ function GlobeNav({ mini, activeTab, onSelect }) {
         s.rotY += dx * 0.008; s.rotX += dy * 0.004;
         s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
         s.ldx = dx * 0.008; s.ldy = dy * 0.004;
+        s.bgOffset += dx * 0.15; s.lbgd = dx * 0.15;
       }
     }
     function onUp() {
       if (!s.dragging) return;
       s.dragging = false;
-      if (s.moved < 8) {
+      // only select on a near-still release — a swipe with velocity coasts first
+      const vel = Math.abs(s.ldx) + Math.abs(s.ldy);
+      if (s.moved < 8 && vel <= 0.05) {
         // pick whichever zone is closest to front-centre; the front-most one
         // (the locked-on target) wins so a tap always enters something sensible
         let best = null, bd = 1e9;
         for (const z of GLOBE_ZONES) { const p = proj(z.lat, z.lon); if (p.z <= 0) continue; const d = Math.hypot(p.x - s.cx, p.y - s.cy); if (d < bd) { bd = d; best = z; } }
         const front = nearestZone(), fp = proj(front.lat, front.lon);
-        const pick = bd < 55 ? best : (fp.z > 0.55 ? front : null);
+        let pick = bd < 65 ? best : (fp.z > 0.55 ? front : null);
+        const tnow = performance.now();
+        const candidate = pick || front;
+        const dbl = (tnow - s.lastTapTime < 300) && s.lastTapTab === candidate.tab;
+        s.lastTapTime = tnow; s.lastTapTab = candidate.tab;
+        // double-tap on the same zone forces selection of the locked-on zone
+        if (!pick && dbl && fp.z > 0) pick = front;
         if (pick) {
           s.flashTab = pick.tab; s.flashUntil = s.t + 14;
-          try { navigator.vibrate && navigator.vibrate(12); } catch (err) {}
+          try { navigator.vibrate && navigator.vibrate(dbl ? 20 : 12); } catch (err) {}
           propsRef.current.onSelect(pick.tab);
         }
-      } else if (!reduce) { s.velY = s.ldx; s.velX = s.ldy; s.coasting = true; }
+      } else if (!reduce) { s.velY = s.ldx; s.velX = s.ldy; s.coasting = true; s.bgVel = s.lbgd; }
     }
     canvas.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove);
@@ -3951,6 +4020,7 @@ function GlobeNav({ mini, activeTab, onSelect }) {
     window.addEventListener("pointercancel", onUp);
 
     let raf = 0, last = performance.now();
+    s.bgIdleStart = last; s.bgIdleBase = ((s.bgOffset % 200) + 200) % 200;
     function frame(now) {
       raf = requestAnimationFrame(frame);
       const dt = now - last; last = now;
@@ -3971,7 +4041,7 @@ function GlobeNav({ mini, activeTab, onSelect }) {
         else if (s.snapping) {
           const tg = nearestZone();
           const dY = angDiff(s.rotY, -tg.lon), dX = tg.lat - s.rotX;
-          s.rotY += dY * 0.06; s.rotX += dX * 0.06;
+          s.rotY += dY * 0.09; s.rotX += dX * 0.09;
           if (Math.abs(dY) < 0.01 && Math.abs(dX) < 0.01) { s.snapping = false; s.snapHold = s.t + 150; }
         } else {
           s.rotY += s.velY; s.rotX += s.velX; s.velY *= 0.93; s.velX *= 0.93;
@@ -3991,23 +4061,54 @@ function GlobeNav({ mini, activeTab, onSelect }) {
 
       ctx.clearRect(0, 0, W, H);
 
-      // drive the CSS pitch-aerial sphere to follow the morph + rotation;
-      // the canvas above only paints zones/overlays, transparent elsewhere
+      // size/position the real-Earth sphere to follow the morph; the canvas
+      // above only paints zones/overlays and stays transparent elsewhere
       const sphereEl = sphereRef.current, atmoEl = atmoRef.current;
+      const d = R * 2;
       if (sphereEl) {
-        let bgX = ((s.rotY / TAU) % 1) * 100; if (bgX < 0) bgX += 100;
-        const d = R * 2;
         sphereEl.style.left = cx + "px"; sphereEl.style.top = cy + "px";
         sphereEl.style.width = d + "px"; sphereEl.style.height = d + "px";
-        sphereEl.style.backgroundPosition = `center, ${bgX}% center`;
       }
       if (atmoEl) {
-        const ad = R * 2 * 1.18;
+        const ad = d * 1.22;
         atmoEl.style.left = cx + "px"; atmoEl.style.top = cy + "px";
         atmoEl.style.width = ad + "px"; atmoEl.style.height = ad + "px";
       }
 
+      // Earth spin: the CSS globeSpin animation drives the idle rotation; while
+      // dragging or coasting we pause it and shift background-position by hand,
+      // then re-phase and hand the spin back to CSS when the globe settles so
+      // it resumes from the current position without jumping.
+      if (sphereEl && !reduce) {
+        const manual = s.dragging || s.coasting || s.snapping;
+        if (manual && !s.bgManual) {
+          const elapsed = (now - s.bgIdleStart) / 1000;
+          s.bgOffset = s.bgIdleBase + elapsed * 8; // globeSpin = 200% / 25s = 8%/s
+          s.bgManual = true;
+          sphereEl.style.animation = "none";
+        }
+        if (s.bgManual) {
+          if (!s.dragging) { s.bgOffset += s.bgVel; s.bgVel *= 0.95; }
+          sphereEl.style.backgroundPosition = (((s.bgOffset % 200) + 200) % 200) + "% center";
+        }
+        if (!manual && s.bgManual) {
+          s.bgManual = false;
+          const phase = (((s.bgOffset % 200) + 200) % 200) / 200;
+          sphereEl.style.animation = "";
+          sphereEl.style.animationDelay = (-phase * 25) + "s";
+          sphereEl.style.animationPlayState = "running";
+          sphereEl.style.backgroundPosition = "";
+          s.bgIdleBase = phase * 200; s.bgIdleStart = now;
+        }
+      } else if (sphereEl && reduce) {
+        sphereEl.style.animation = "none";
+      }
+
       const front = nearestZone();
+      // surface the locked-on zone name as a hint below the full globe
+      if (!isMini) {
+        if (s.hintTab !== front.tab) { s.hintTab = front.tab; setHintZone(front); }
+      } else if (s.hintTab !== null) { s.hintTab = null; setHintZone(null); }
       // motion trail of the front zone (skipped on slow frames)
       if (!slow && m < 0.6) {
         const fp = proj(front.lat, front.lon);
@@ -4035,20 +4136,20 @@ function GlobeNav({ mini, activeTab, onSelect }) {
           ctx.shadowBlur = 20; ctx.shadowColor = z.color;
           ctx.globalAlpha = zf * (0.5 + 0.5 * p.z);
           ctx.fillStyle = hexA(z.color, flashing ? 0.5 : 0.25);
-          ctx.beginPath(); ctx.arc(p.x, p.y, 28 * depth * (1 + 0.06 * pulse), 0, TAU); ctx.fill();
+          ctx.beginPath(); ctx.arc(p.x, p.y, 36 * depth * (1 + 0.06 * pulse), 0, TAU); ctx.fill();
           ctx.fillStyle = hexA(z.color, flashing ? 1 : 0.6);
-          ctx.beginPath(); ctx.arc(p.x, p.y, 16 * depth, 0, TAU); ctx.fill();
+          ctx.beginPath(); ctx.arc(p.x, p.y, 20 * depth, 0, TAU); ctx.fill();
           ctx.shadowBlur = 0;
           ctx.globalAlpha = zf * Math.min(1, 0.6 + 0.5 * p.z);
-          ctx.font = `${Math.round(18 * depth)}px serif`;
+          ctx.font = `${Math.round(22 * depth)}px serif`;
           ctx.fillText(z.icon, p.x, p.y - 1);
-          ctx.font = `${Math.round(11 * depth)}px 'Bebas Neue', sans-serif`;
+          ctx.font = `${Math.round(13 * depth)}px 'Bebas Neue', sans-serif`;
           ctx.fillStyle = "rgba(255,255,255,0.85)";
-          ctx.fillText(z.label, p.x, p.y + 24 * depth);
+          ctx.fillText(z.label, p.x, p.y + 30 * depth);
           if (z.tab === act) {
             const rr = (s.t % 60) / 60;
             ctx.globalAlpha = zf * (1 - rr) * 0.8; ctx.strokeStyle = z.color; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(p.x, p.y, (16 + rr * 30) * depth, 0, TAU); ctx.stroke();
+            ctx.beginPath(); ctx.arc(p.x, p.y, (20 + rr * 30) * depth, 0, TAU); ctx.stroke();
           }
           ctx.restore();
         }
@@ -4081,6 +4182,9 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       <div ref={atmoRef} className="globe-atmosphere" aria-hidden style={{ zIndex: mini ? 55 : 18 }} />
       <div ref={sphereRef} className="globe-sphere" aria-hidden style={{ zIndex: mini ? 56 : 19 }} />
       <canvas ref={canvasRef} className={`globe-canvas${mini ? " is-mini" : ""}`} aria-label="globe navigation" />
+      {!mini && hintZone && (
+        <div className="globe-zone-hint">{hintZone.icon} {hintZone.label}</div>
+      )}
     </>
   );
 }
@@ -4418,6 +4522,7 @@ export default function App() {
 
           <button className="more-btn-globe" onClick={() => { setMoreOpen(true); SFX.click(); }} aria-label="more sections">⋯</button>
           <button className="globe-mini-hit" onClick={returnToGlobe} aria-label="back to globe navigation" />
+          <button className="globe-back-btn" onClick={returnToGlobe}>🌍 Globe</button>
 
           {moreOpen && (
             <>
