@@ -170,7 +170,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .team .nm{font-family:'Bebas Neue';font-size:20px;letter-spacing:.06em;text-align:center;}
 .score{font-family:'Bebas Neue';font-size:44px;color:var(--gold-bright);background:#050a06;
   border:1px solid rgba(201,168,76,.4);border-radius:10px;padding:2px 14px;min-width:96px;text-align:center;
-  text-shadow:0 0 20px currentColor;}
+  text-shadow:0 0 20px currentColor;animation:scorePop .34s cubic-bezier(.2,1.5,.4,1) both;}
 @keyframes scorePop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
 .vs{font-family:'Bebas Neue';font-size:22px;color:var(--muted);}
 .pickrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
@@ -1351,112 +1351,145 @@ function Confetti({ burst, colors }) {
 
 function StadiumBg() {
   const cvRef = useRef(null);
-  const tiltRef = useRef({ gamma: 0, beta: 0 });
+  const tiltRef = useRef({ x: 0, y: 0 });
   useEffect(() => {
     const cv = cvRef.current;
     if (!cv) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let W = 0, H = 0, ctx = null;
+    let W = 0, H = 0;
     function resize() {
       W = window.innerWidth; H = window.innerHeight;
-      cv.width = W * dpr; cv.height = H * dpr;
-      ctx = cv.getContext("2d");
-      ctx.scale(dpr, dpr);
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (reduce) drawScene(0);
     }
-    resize();
-    window.addEventListener("resize", resize);
-    const pts = Array.from({ length: 30 }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
+
+    // Layer 3 — gold particles (normalised 0..1 coords so they survive resize)
+    const particles = Array.from({ length: 30 }, () => ({
+      x: Math.random(), y: Math.random(),
       r: 1.5 + Math.random(),
-      vy: 0.3 + Math.random() * 0.5,
-      vx: (Math.random() - 0.5) * 0.3,
+      vy: 0.0006 + Math.random() * 0.0011,
+      drift: (Math.random() - 0.5) * 0.0005,
       op: 0.2 + Math.random() * 0.4,
       ph: Math.random() * Math.PI * 2,
     }));
-    let rafId, t = 0;
-    function draw() {
-      t += 0.008;
-      const tx = tiltRef.current.gamma * (20 / 90);
-      const ty = tiltRef.current.beta * (20 / 90);
+    // Layer 2 — floodlight beams, each with its own phase so they pan independently
+    const beams = [
+      { ox: 0.07, ph: 0.0, sw: 0.075 },
+      { ox: 0.93, ph: 1.7, sw: 0.075 },
+      { ox: 0.23, ph: 3.3, sw: 0.06 },
+      { ox: 0.77, ph: 4.9, sw: 0.06 },
+    ];
+
+    function drawScene(now) {
+      const tx = tiltRef.current.x, ty = tiltRef.current.y;
       ctx.clearRect(0, 0, W, H);
-      // Layer 1 — pitch grid (bottom third, perspective)
-      const gH = H * 0.32, gY0 = H - gH;
-      ctx.save();
-      ctx.strokeStyle = "rgba(22,120,60,.22)";
-      ctx.lineWidth = 0.8;
-      const cols = 12;
-      for (let i = 0; i <= cols; i++) {
-        const fx = (i / cols) * W;
+
+      // Layer 4 — crowd band (top ~15%): warm noise suggestion
+      const crowd = ctx.createLinearGradient(0, 0, 0, H * 0.15);
+      crowd.addColorStop(0, "rgba(240,180,50,0.04)");
+      crowd.addColorStop(1, "rgba(240,180,50,0)");
+      ctx.fillStyle = crowd;
+      ctx.fillRect(0, 0, W, H * 0.15);
+
+      // Layer 2 — floodlight beams from the top corners
+      for (const b of beams) {
+        const ox = b.ox * W + tx;
+        const tip = W * 0.5 + Math.sin(now * 0.0005 + b.ph) * W * b.sw + ty * 0.5;
+        const tipY = H * 0.72;
+        const g = ctx.createRadialGradient(ox, -H * 0.06, 0, tip, tipY, H * 0.95);
+        g.addColorStop(0, "rgba(255,255,255,0.06)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.moveTo(W / 2 + (fx - W / 2) * 0.04, gY0 + gH * 0.04);
-        ctx.lineTo(fx, gY0 + gH);
+        ctx.moveTo(ox, -H * 0.06);
+        ctx.lineTo(tip - W * 0.16, tipY);
+        ctx.lineTo(tip + W * 0.16, tipY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Layer 1 — perspective pitch grid (bottom third), static
+      const gH = H * 0.34, top = H - gH, cx = W / 2, halfBase = W * 0.62;
+      ctx.save();
+      ctx.strokeStyle = "rgba(26,140,72,0.20)";
+      ctx.lineWidth = 1;
+      for (let i = -6; i <= 6; i++) {
+        const bx = cx + (i / 6) * halfBase;
+        ctx.beginPath();
+        ctx.moveTo(cx + (bx - cx) * 0.12, top);
+        ctx.lineTo(bx, H);
         ctx.stroke();
       }
-      for (let j = 1; j <= 8; j++) {
-        const p = Math.pow(j / 8, 1.7);
-        const y = gY0 + gH * p;
+      for (let j = 0; j <= 7; j++) {
+        const p = Math.pow(j / 7, 1.8);
+        const y = top + gH * p;
+        const half = halfBase * (0.12 + p * 0.88);
+        ctx.globalAlpha = 0.10 + p * 0.16;
         ctx.beginPath();
-        ctx.moveTo(W / 2 - (W / 2) * p, y);
-        ctx.lineTo(W / 2 + (W / 2) * p, y);
+        ctx.moveTo(cx - half, y);
+        ctx.lineTo(cx + half, y);
         ctx.stroke();
       }
       ctx.restore();
-      // Layer 4 — crowd blur strip (top 15%)
-      const cg = ctx.createLinearGradient(0, 0, 0, H * 0.15);
-      cg.addColorStop(0, "rgba(240,180,50,.04)");
-      cg.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = cg;
-      ctx.fillRect(0, 0, W, H * 0.15);
-      // Layer 2 — floodlight beams (4 beams, slow pan)
-      const beams = [
-        { bx: W * 0.08 + tx, by: -H * 0.05 + ty, ph: 0 },
-        { bx: W * 0.92 + tx, by: -H * 0.05 + ty, ph: Math.PI * 0.5 },
-        { bx: W * 0.22 + tx, by: -H * 0.08 + ty, ph: Math.PI },
-        { bx: W * 0.78 + tx, by: -H * 0.08 + ty, ph: Math.PI * 1.5 },
-      ];
-      for (const b of beams) {
-        const endX = W * 0.5 + Math.sin(t + b.ph) * W * 0.08;
-        const endY = H * 0.7;
-        const g = ctx.createRadialGradient(b.bx, b.by, 0, endX, endY, W * 0.5);
-        g.addColorStop(0, "rgba(255,255,255,.06)");
-        g.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.save();
-        ctx.fillStyle = g;
+
+      // Layer 3 — gold particles drifting upward
+      ctx.fillStyle = "#ffd24a";
+      for (const p of particles) {
+        ctx.globalAlpha = p.op * (0.7 + 0.3 * Math.sin(now * 0.002 + p.ph));
         ctx.beginPath();
-        ctx.moveTo(b.bx, b.by);
-        ctx.lineTo(endX - W * 0.2, endY);
-        ctx.lineTo(endX + W * 0.2, endY);
-        ctx.closePath();
+        ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
       }
-      // Layer 3 — gold particles
-      for (const p of pts) {
-        p.y -= p.vy;
-        p.x += p.vx + Math.sin(t * 2 + p.ph) * 0.15;
-        if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
-        ctx.save();
-        ctx.globalAlpha = p.op;
-        ctx.fillStyle = "#ffd633";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-      rafId = requestAnimationFrame(draw);
+      ctx.globalAlpha = 1;
     }
-    rafId = requestAnimationFrame(draw);
-    const onTilt = (e) => { tiltRef.current = { gamma: e.gamma || 0, beta: e.beta || 0 }; };
-    window.addEventListener("deviceorientation", onTilt);
+
+    let rafId = 0;
+    function step(now) {
+      for (const p of particles) {
+        p.y -= p.vy;
+        p.x += p.drift + Math.sin(now * 0.001 + p.ph) * 0.00012;
+        if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); }
+        if (p.x < -0.05) p.x = 1.05; else if (p.x > 1.05) p.x = -0.05;
+      }
+      drawScene(now);
+      rafId = requestAnimationFrame(step);
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
+    if (reduce) {
+      drawScene(0); // single static frame, no loop — respects reduced-motion
+    } else {
+      rafId = requestAnimationFrame(step);
+    }
+
+    const onTilt = (e) => {
+      const clamp = (v) => Math.max(-20, Math.min(20, v));
+      tiltRef.current = {
+        x: clamp((e.gamma || 0) * (20 / 45)),
+        y: clamp(((e.beta || 0) - 45) * (20 / 45)),
+      };
+    };
+    const onVis = () => {
+      if (reduce) return;
+      cancelAnimationFrame(rafId);
+      if (!document.hidden) rafId = requestAnimationFrame(step);
+    };
+    if (!reduce) window.addEventListener("deviceorientation", onTilt);
+    document.addEventListener("visibilitychange", onVis);
+
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("resize", resize);
       window.removeEventListener("deviceorientation", onTilt);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
-  return <canvas ref={cvRef} style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 0, pointerEvents: "none" }} aria-hidden />;
+  return <canvas ref={cvRef} aria-hidden style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 0, pointerEvents: "none" }} />;
 }
 
 const Sticker = ({ children, style }) => {
@@ -1603,7 +1636,7 @@ function MatchDetailModal({ game, match, onClose }) {
           <div className="face" style={{ marginTop: 6 }}>
             <div className="team"><span className="fl"><Flag name={a?.name} size={22} /></span><span className="nm">{a?.name}</span></div>
             {(match.status === "finished" || match.live) && match.scoreA != null
-              ? <div className="score">{match.scoreA} – {match.scoreB}</div> : <div className="vs">VS</div>}
+              ? <div className="score" key={`sc${match.scoreA}-${match.scoreB}`}>{match.scoreA} – {match.scoreB}</div> : <div className="vs">VS</div>}
             <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
           </div>
           <div className="modal-sub" style={{ textAlign: "center", marginTop: 6 }}>{STAGE_LABEL[match.stage]} · {match.live ? "LIVE" : match.status === "finished" ? "Full time" : fmtTime(match.kickoff)}</div>
@@ -1759,7 +1792,7 @@ function TodayPage({ game, me, go }) {
             </div>
             <div className="face">
               <div className="team"><span className="fl"><Flag name={a?.name} size={22} /></span><span className="nm">{a?.name}</span></div>
-              {(m.status === "finished" || (isLive && m.scoreA != null)) ? <div className="score">{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
+              {(m.status === "finished" || (isLive && m.scoreA != null)) ? <div className="score" key={`sc${m.scoreA}-${m.scoreB}`}>{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
               <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
             </div>
             <div className="lockline" style={{ marginTop: 8 }}>
@@ -2198,7 +2231,7 @@ function LiveScoresPage({ game, onRefresh }) {
               <div className="meta"><span>{STAGE_LABEL[m.stage]}</span><span className="live"><span className="dot" />LIVE</span></div>
               <div className="face">
                 <div className="team"><span className="fl"><Flag name={a?.name} size={22} /></span><span className="nm">{a?.name}</span></div>
-                <div className="score">{m.scoreA ?? 0} – {m.scoreB ?? 0}</div>
+                <div className="score" key={`sc${m.scoreA ?? 0}-${m.scoreB ?? 0}`}>{m.scoreA ?? 0} – {m.scoreB ?? 0}</div>
                 <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
               </div>
             </div>
@@ -2248,7 +2281,7 @@ function LiveScoresPage({ game, onRefresh }) {
                 </div>
                 <div className="face">
                   <div className="team"><span className="fl"><Flag name={a?.name} size={22} /></span><span className="nm">{a?.name}</span></div>
-                  {(m.status === "finished" || (isLive && m.scoreA != null)) ? <div className="score">{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
+                  {(m.status === "finished" || (isLive && m.scoreA != null)) ? <div className="score" key={`sc${m.scoreA}-${m.scoreB}`}>{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
                   <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
                 </div>
               </div>
@@ -2449,7 +2482,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
                 <div className="face">
                   <div className="team"><span className="fl"><Flag name={a?.name} size={22} /></span><span className="nm">{a?.name}</span></div>
                   {isLive && m.scoreA != null && m.scoreB != null
-                    ? <div className="score">{m.scoreA} – {m.scoreB}</div>
+                    ? <div className="score" key={`sc${m.scoreA}-${m.scoreB}`}>{m.scoreA} – {m.scoreB}</div>
                     : <div className="vs">VS</div>}
                   <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
                 </div>
@@ -2485,7 +2518,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
               <div className="meta"><span>{stageTag(m, tById)}</span><span>FULL TIME</span></div>
               <div className="face">
                 <div className="team"><span className="fl"><Flag name={a?.name} size={22} /></span><span className="nm">{a?.name}</span></div>
-                <div className="score">{m.scoreA} – {m.scoreB}</div>
+                <div className="score" key={`sc${m.scoreA}-${m.scoreB}`}>{m.scoreA} – {m.scoreB}</div>
                 <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
               </div>
             </div>
@@ -2563,7 +2596,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
             </div>
             <div className="face">
               <div className="team"><span className="fl"><Flag name={a?.name} size={22} /></span><span className="nm">{a?.name}</span></div>
-              {(m.status === "finished" || (isLive && m.scoreA != null && m.scoreB != null)) ? <div className="score">{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
+              {(m.status === "finished" || (isLive && m.scoreA != null && m.scoreB != null)) ? <div className="score" key={`sc${m.scoreA}-${m.scoreB}`}>{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
               <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
             </div>
             <div className="pickrow">
@@ -3938,7 +3971,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v57</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v58</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
