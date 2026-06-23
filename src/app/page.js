@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
-const APP_VERSION = "v65";
+const APP_VERSION = "v66";
 
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
@@ -118,7 +118,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
     0 0 50px rgba(22,194,100,0.2),
     0 0 100px rgba(22,194,100,0.08),
     0 20px 60px rgba(0,0,0,0.6);
-  animation:globeSpin 25s linear infinite;
+  animation:globeSpin 31.25s linear infinite;
   overflow:hidden;pointer-events:none;}
 @keyframes globeSpin{
   0%   { background-position: 0% center; }
@@ -144,8 +144,11 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
   box-shadow:
     inset -5px -4px 12px rgba(0,0,0,0.55),
     inset 3px 3px 10px rgba(255,255,255,0.06),
-    0 0 16px rgba(22,194,100,0.35),
-    0 4px 14px rgba(0,0,0,0.55);}
+    0 0 0 1.5px rgba(240,201,58,0.7),
+    0 0 16px rgba(240,201,58,0.35),
+    0 0 32px rgba(22,194,100,0.2),
+    0 4px 16px rgba(0,0,0,0.6);
+  transition:transform .18s cubic-bezier(.2,1.5,.4,1), box-shadow .2s ease;}
 /* the base sphere's edge vignette is sized for a 280px globe and swamps the
    ~88px corner globe with a thick black ring — push it out to the rim so the
    Earth image fills the mini circle cleanly with only a subtle edge fade. */
@@ -159,6 +162,28 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
     transparent 72%,
     rgba(0,0,0,0.3) 92%,
     rgba(0,0,0,0.55) 100%);}
+/* the soft halo swamps the tiny corner globe and overflows the gold ring —
+   the ring + glow are handled by the sphere's box-shadow, so drop it here. */
+.globe-atmosphere.is-mini{display:none;}
+/* press the corner globe → it dips in; on devices with a real pointer it
+   lifts and the gold ring brightens. transform composes with the sphere's
+   own translate centring (JS only sets left/top, never transform). */
+.wc-app:has(.globe-mini-hit:active) .globe-sphere.is-mini{
+  transform:translate(-50%,-50%) scale(.92);}
+@media (hover:hover){
+  .wc-app:has(.globe-mini-hit:hover) .globe-sphere.is-mini{
+    transform:translate(-50%,-50%) scale(1.06);
+    box-shadow:
+      inset -5px -4px 12px rgba(0,0,0,0.55),
+      inset 3px 3px 10px rgba(255,255,255,0.06),
+      0 0 0 1.5px rgba(240,201,58,0.9),
+      0 0 24px rgba(240,201,58,0.5),
+      0 0 48px rgba(22,194,100,0.3),
+      0 4px 20px rgba(0,0,0,0.7);}
+}
+.globe-mini-label{position:fixed;bottom:10px;right:0;width:128px;text-align:center;
+  z-index:65;pointer-events:none;font-family:'Barlow Condensed';font-size:9px;
+  letter-spacing:.15em;text-transform:uppercase;color:rgba(240,201,58,0.6);}
 .globe-atmosphere{position:fixed;left:50%;top:45%;
   transform:translate(-50%,-50%);
   width:calc(var(--globe-size,280px) * 1.22);
@@ -185,15 +210,6 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
   animation:hintAppear .2s ease;
   white-space:nowrap;z-index:30;}
 @keyframes hintAppear{ from { opacity: 0; transform: translateX(-50%) translateY(4px); } }
-.globe-back-btn{position:fixed;bottom:28px;right:16px;z-index:65;
-  background:linear-gradient(135deg, rgba(13,46,28,.92), rgba(7,22,14,.95));
-  border:1px solid rgba(22,194,100,.5);
-  border-radius:999px;padding:8px 16px;
-  font-family:'Barlow Condensed';font-size:14px;
-  letter-spacing:.1em;color:var(--gold-bright);
-  box-shadow:0 4px 16px rgba(0,0,0,.4), 0 0 12px rgba(22,194,100,.2);
-  cursor:pointer;}
-.globe-back-btn:active{transform:scale(.94);}
 
 .page{max-width:880px;margin:0 auto;padding:20px 16px;}
 .picks-page{touch-action:pan-y;}
@@ -3969,6 +3985,7 @@ function GlobeNav({ mini, activeTab, onSelect }) {
     stateRef.current = {
       rotY: 0, rotX: 0.12,
       dragging: false, lx: 0, ly: 0, moved: 0, downX: 0, downY: 0,
+      velX: 0, lastMoveT: 0, coasting: false, dotFade: 1, lastSnapZone: 0,
       zoneIdx: 0, settled: true,
       animating: false, animT0: 0, animDur: 500, animFY: 0, animTY: 0, animFX: 0, animTX: 0,
       morph: mini ? 1 : 0, morphV: 0,
@@ -3990,6 +4007,9 @@ function GlobeNav({ mini, activeTab, onSelect }) {
     const s = stateRef.current;
     const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     const TAU = Math.PI * 2;
+    const ROT_MULT = 0.011;     // drag responsiveness (was 0.008 — more reactive to touch)
+    const BG_PER_RAD = 18.75;   // Earth-texture offset (%) per radian of rotation
+    const DAMP = 0.92;          // momentum coast damping per frame
     let W = 0, H = 0, dpr = 1;
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -4017,9 +4037,15 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       return best;
     }
     function angDiff(a, b) { let d = ((b - a + Math.PI) % TAU) - Math.PI; if (d < -Math.PI) d += TAU; return d; }
-    // smoothly rotate the globe so zone i sits front-and-centre (500ms ease-in-out)
+    // smoothly rotate the globe so zone i sits front-and-centre (500ms ease-in-out).
+    // angDiff always picks the shortest arc, so it never spins the long way round.
     function animateToZone(i) {
       const z = GLOBE_ZONES[i];
+      if (s.lastSnapZone !== i) {
+        try { navigator.vibrate && navigator.vibrate(8); } catch (err) {}
+        s.lastSnapZone = i;
+      }
+      s.velX = 0;
       s.animFY = s.rotY; s.animTY = s.rotY + angDiff(s.rotY, -z.lon);
       s.animFX = s.rotX; s.animTX = z.lat;
       s.animT0 = performance.now(); s.animating = true; s.settled = false;
@@ -4028,7 +4054,8 @@ function GlobeNav({ mini, activeTab, onSelect }) {
     const pt = (e) => ({ x: e.clientX, y: e.clientY });
     function onDown(e) {
       if (propsRef.current.mini) return;
-      s.dragging = true; s.moved = 0; s.animating = false;
+      s.dragging = true; s.moved = 0; s.animating = false; s.coasting = false;
+      s.velX = 0; s.lastMoveT = performance.now();
       const p = pt(e); s.lx = p.x; s.ly = p.y; s.downX = p.x; s.downY = p.y;
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     }
@@ -4036,10 +4063,14 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       if (!s.dragging) return;
       const p = pt(e); const dx = p.x - s.lx, dy = p.y - s.ly; s.lx = p.x; s.ly = p.y;
       s.moved += Math.abs(dx) + Math.abs(dy);
+      // track swipe velocity (px / frame, capped) so release can carry momentum
+      const now = performance.now(), dt = now - s.lastMoveT;
+      if (dt > 0) s.velX = Math.max(-18, Math.min(18, (dx / dt) * 16));
+      s.lastMoveT = now;
       if (!reduce) {
-        s.rotY += dx * 0.008; s.rotX += dy * 0.004;
+        s.rotY += dx * ROT_MULT; s.rotX += dy * 0.004;
         s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
-        s.bgOffset += dx * 0.15;
+        s.bgOffset += dx * ROT_MULT * BG_PER_RAD;
       }
     }
     function onUp() {
@@ -4061,8 +4092,12 @@ function GlobeNav({ mini, activeTab, onSelect }) {
         return;
       }
 
-      // A deliberate horizontal swipe steps exactly one zone; anything shorter
-      // settles back onto the current zone. No momentum — the globe never coasts.
+      // A fast flick coasts with momentum and settles wherever it slows down;
+      // a slow, deliberate swipe steps one zone and snaps straight away.
+      if (Math.abs(s.velX) > 0.8 && !reduce) {
+        s.coasting = true; s.settled = false;
+        return;
+      }
       if (Math.abs(totalDragX) > 35) {
         if (totalDragX < 0) s.zoneIdx = (s.zoneIdx + 1) % GLOBE_ZONES.length;
         else s.zoneIdx = (s.zoneIdx - 1 + GLOBE_ZONES.length) % GLOBE_ZONES.length;
@@ -4083,16 +4118,31 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       const isMini = propsRef.current.mini, act = propsRef.current.activeTab;
       s.t += 1;
 
-      // springy morph between full-screen and mini-corner
+      // springy morph between full-screen and mini-corner. Expanding back to
+      // full (returning from a tab) springs a touch looser so the globe blooms
+      // out of the corner and overshoots ~6% before settling — a cinematic pop.
       const target = isMini ? 1 : 0;
-      s.morphV += (target - s.morph) * 0.18; s.morphV *= 0.72; s.morph += s.morphV;
+      const stiff = target === 0 ? 0.16 : 0.18;
+      const damp = target === 0 ? 0.78 : 0.72;
+      s.morphV += (target - s.morph) * stiff; s.morphV *= damp; s.morph += s.morphV;
       if (Math.abs(target - s.morph) < 0.001 && Math.abs(s.morphV) < 0.001) { s.morph = target; s.morphV = 0; }
-      const m = Math.max(0, Math.min(1, s.morph));
+      const m = Math.max(-0.06, Math.min(1, s.morph));
 
-      // rotation: drag is live; otherwise animate-to-zone or idle auto-rotate.
-      // No momentum/coasting — the globe only moves on drag or a settling swipe.
+      // rotation: drag is live; otherwise coast on momentum, animate-to-zone,
+      // or drift idly. A fast flick coasts (damped) and only snaps to the
+      // nearest zone once it has slowed right down — so you can spin freely.
       if (!s.dragging) {
-        if (isMini) { if (!reduce) s.rotY += 0.004; }
+        if (isMini) { if (!reduce) s.rotY += 0.0032; }
+        else if (s.coasting) {
+          if (reduce) { s.coasting = false; animateToZone(GLOBE_ZONES.indexOf(nearestZone())); }
+          else {
+            const beforeY = s.rotY;
+            s.rotY += s.velX * ROT_MULT; s.velX *= DAMP;
+            s.bgOffset += (s.rotY - beforeY) * BG_PER_RAD; // Earth texture coasts too
+            s.zoneIdx = GLOBE_ZONES.indexOf(nearestZone());
+            if (Math.abs(s.velX) < 0.5) { s.coasting = false; animateToZone(GLOBE_ZONES.indexOf(nearestZone())); }
+          }
+        }
         else if (s.animating) {
           if (reduce) { s.rotY = s.animTY; s.rotX = s.animTX; s.animating = false; s.settled = true; }
           else {
@@ -4101,16 +4151,22 @@ function GlobeNav({ mini, activeTab, onSelect }) {
             const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
             s.rotY = s.animFY + (s.animTY - s.animFY) * e;
             s.rotX = s.animFX + (s.animTX - s.animFX) * e;
-            s.bgOffset += (s.rotY - beforeY) * 18.75; // Earth texture follows the swipe
+            s.bgOffset += (s.rotY - beforeY) * BG_PER_RAD; // Earth texture follows the swipe
             if (p >= 1) { s.animating = false; s.settled = true; }
           }
         } else if (!reduce) {
-          // idle: drift slowly, keeping the current zone locked to whatever is centred
-          s.rotY += 0.003;
+          // idle: drift slowly (20% gentler than before — more majestic),
+          // keeping the current zone locked to whatever is centred
+          s.rotY += 0.0024;
           s.zoneIdx = GLOBE_ZONES.indexOf(nearestZone());
         }
         s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
       }
+
+      // zone dots dim while the globe is spinning fast, then fade back in as it
+      // slows — spinning feels clean, landing on a zone feels intentional
+      const dotTarget = (s.dragging || s.coasting) && Math.abs(s.velX) > 2 ? 0.3 : 1;
+      s.dotFade += (dotTarget - s.dotFade) * 0.15;
 
       // sphere geometry lerped between full and corner
       const fR = Math.min(W, H) * 0.33, fcx = W / 2, fcy = H * 0.45;
@@ -4139,10 +4195,10 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       // then re-phase and hand the spin back to CSS when the globe settles so
       // it resumes from the current position without jumping.
       if (sphereEl && !reduce) {
-        const manual = s.dragging || s.animating;
+        const manual = s.dragging || s.animating || s.coasting;
         if (manual && !s.bgManual) {
           const elapsed = (now - s.bgIdleStart) / 1000;
-          s.bgOffset = s.bgIdleBase + elapsed * 8; // globeSpin = 200% / 25s = 8%/s
+          s.bgOffset = s.bgIdleBase + elapsed * 6.4; // globeSpin = 200% / 31.25s = 6.4%/s
           s.bgManual = true;
           sphereEl.style.animation = "none";
         }
@@ -4154,7 +4210,7 @@ function GlobeNav({ mini, activeTab, onSelect }) {
           s.bgManual = false;
           const phase = (((s.bgOffset % 200) + 200) % 200) / 200;
           sphereEl.style.animation = "";
-          sphereEl.style.animationDelay = (-phase * 25) + "s";
+          sphereEl.style.animationDelay = (-phase * 31.25) + "s";
           sphereEl.style.animationPlayState = "running";
           sphereEl.style.backgroundPosition = "";
           s.bgIdleBase = phase * 200; s.bgIdleStart = now;
@@ -4181,9 +4237,9 @@ function GlobeNav({ mini, activeTab, onSelect }) {
         if (fp.z > 0.2) { ctx.globalAlpha = (1 - m) * 0.3; ctx.strokeStyle = front.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(fp.x, fp.y); ctx.stroke(); ctx.globalAlpha = 1; }
       }
 
-      // zones
+      // zones (dimmed by dotFade while spinning fast)
       const pulse = 0.5 + 0.5 * Math.sin(s.t * 0.09);
-      const zf = 1 - m;
+      const zf = (1 - m) * s.dotFade;
       if (zf > 0.02) {
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         for (const z of GLOBE_ZONES) {
@@ -4213,16 +4269,9 @@ function GlobeNav({ mini, activeTab, onSelect }) {
           ctx.restore();
         }
       }
-
-      // mini-corner: glow ring in the active zone's colour
-      if (m > 0.05) {
-        const az = GLOBE_ZONES.find((z) => z.tab === act) || GLOBE_ZONES[0];
-        ctx.save();
-        ctx.globalAlpha = m * 0.9; ctx.shadowBlur = 22; ctx.shadowColor = az.color;
-        ctx.strokeStyle = hexA(az.color, 0.65); ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.arc(cx, cy, R + 3, 0, TAU); ctx.stroke();
-        ctx.restore();
-      }
+      // The mini-corner gold ring + glow now live on the sphere's box-shadow
+      // (rendered outside its overflow:hidden clip), so the Earth sits cleanly
+      // inside the ring with no collision — nothing to paint here.
     }
     raf = requestAnimationFrame(frame);
 
@@ -4238,7 +4287,7 @@ function GlobeNav({ mini, activeTab, onSelect }) {
 
   return (
     <>
-      <div ref={atmoRef} className="globe-atmosphere" aria-hidden style={{ zIndex: mini ? 55 : 18 }} />
+      <div ref={atmoRef} className={`globe-atmosphere${mini ? " is-mini" : ""}`} aria-hidden style={{ zIndex: mini ? 55 : 18 }} />
       <div ref={sphereRef} className={`globe-sphere${mini ? " is-mini" : ""}`} aria-hidden style={{ zIndex: mini ? 56 : 19 }} />
       <canvas ref={canvasRef} className={`globe-canvas${mini ? " is-mini" : ""}`} aria-label="globe navigation" />
       {!mini && hintZone && (
@@ -4588,7 +4637,7 @@ export default function App() {
 
           <button className="more-btn-globe" onClick={() => { setMoreOpen(true); SFX.click(); }} aria-label="more sections">⋯</button>
           <button className="globe-mini-hit" onClick={returnToGlobe} aria-label="back to globe navigation" />
-          <button className="globe-back-btn" onClick={returnToGlobe}>🌍 Globe</button>
+          <div className="globe-mini-label" aria-hidden>Globe</div>
 
           {moreOpen && (
             <>
