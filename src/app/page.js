@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
-const APP_VERSION = "v60";
+const APP_VERSION = "v61";
 
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
@@ -45,9 +45,12 @@ button,.tab,.btn,.who,.date-chip,.pickbtn,.lb-row,.match{transition:transform .1
 button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .wc-app{
   min-height:100vh; color:var(--white); font-family:'Inter',sans-serif;
-  background:#06140c;
+  background:
+    linear-gradient(180deg, rgba(6,20,12,0.82) 0%, rgba(6,20,12,0.75) 50%, rgba(6,20,12,0.92) 100%),
+    url('/stadium-bg.jpg') center center / cover fixed no-repeat;
   padding-bottom:0;
 }
+@media (max-width: 768px){ .wc-app{ background-attachment: scroll; } }
 .bebas{font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;}
 .barlow{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;}
 .muted{color:var(--muted);}
@@ -101,6 +104,17 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .content-wrap{position:relative;z-index:10;padding-bottom:150px;}
 .more-btn-globe{position:fixed;bottom:30px;left:16px;z-index:45;background:rgba(7,22,14,.85);border:1px solid rgba(22,194,100,.45);border-radius:12px;width:46px;height:38px;font-size:22px;line-height:1;color:var(--gold-bright);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.45);}
 .more-btn-globe:active{transform:scale(.92);}
+/* globe sphere — real pitch aerial mapped onto a CSS 3D sphere illusion */
+.globe-sphere{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:280px;height:280px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.15), transparent 50%),url('/pitch-aerial.jpg') center / cover;
+  background-position:center, 0% center;
+  box-shadow:inset -20px -20px 60px rgba(0,0,0,0.7),inset 10px 10px 40px rgba(255,255,255,0.08),0 0 60px rgba(22,194,100,0.3),0 0 120px rgba(22,194,100,0.12);
+  overflow:hidden;pointer-events:none;}
+.globe-sphere::before{content:'';position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.12) 0%, transparent 40%, rgba(0,0,0,0.3) 100%);}
+.globe-sphere::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(22,194,100,0.4);box-shadow:0 0 30px rgba(22,194,100,0.2);}
+.globe-atmosphere{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:330px;height:330px;border-radius:50%;
+  background:radial-gradient(circle, transparent 48%, rgba(22,194,100,0.08) 55%, transparent 70%);pointer-events:none;}
 
 .page{max-width:880px;margin:0 auto;padding:20px 16px;}
 .h-sec{font-family:'Bebas Neue';font-size:26px;letter-spacing:.08em;margin:26px 0 12px;
@@ -122,6 +136,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
   repeating-linear-gradient(115deg, var(--pitch-green) 0 70px, var(--pitch-light) 70px 140px);
   border:1px solid rgba(201,168,76,.45);box-shadow:inset 0 0 60px rgba(0,0,0,.5),0 8px 30px rgba(0,0,0,.4);}
 .hero-glow{position:absolute;inset:0;background:radial-gradient(circle at 50% 10%, rgba(240,201,58,.3), transparent 55%);animation:auraPulse 3s ease-in-out infinite;pointer-events:none;}
+.hero-trophy-img{position:absolute;right:-10px;bottom:0;height:90%;width:auto;object-fit:contain;opacity:.18;pointer-events:none;mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);-webkit-mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);}
 .hero-kicker{position:relative;color:var(--gold-bright);font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:6px;opacity:.9;}
 .hero-mega{position:relative;font-family:'Bebas Neue';font-size:clamp(44px,12vw,92px);line-height:.86;letter-spacing:.02em;
   background:linear-gradient(100deg,#fff 20%,var(--gold-bright) 45%,#fff 70%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -139,7 +154,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .hero .pot .amt{font-family:'Bebas Neue';font-size:34px;color:var(--gold-bright);}
 
 /* cards & panels */
-.panel{background:linear-gradient(160deg,rgba(18,58,35,.65),rgba(9,26,16,.75));backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
+.panel{background:linear-gradient(160deg,rgba(18,58,35,.78),rgba(9,26,16,.85)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
 @property --hue{syntax:'<angle>';initial-value:0deg;inherits:false;}
 @keyframes hueRotate{to{--hue:360deg}}
 .panel:hover{border-color:hsl(var(--hue),55%,65%);animation:hueRotate 8s linear;}
@@ -155,7 +170,7 @@ input,select{background:#0a1810;color:var(--white);border:1px solid rgba(138,170
 input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline-offset:1px;}
 
 /* match scoreboard card */
-.match{background:linear-gradient(180deg,rgba(16,52,31,.85),rgba(9,26,16,.88));backdrop-filter:blur(6px);border:1px solid rgba(22,194,100,.24);
+.match{background:linear-gradient(180deg,rgba(16,52,31,.88),rgba(9,26,16,.92)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(6px);border:1px solid rgba(22,194,100,.24);
   border-radius:14px;padding:14px;margin-bottom:14px;position:relative;}
 .match .meta{display:flex;justify-content:space-between;align-items:center;font-family:'Barlow Condensed';
   font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
@@ -263,7 +278,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .motd-score{flex:0 0 auto;padding:0 6px;}
 .motd-split{text-align:center;font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.03em;}
 .motd-cta{text-align:center;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.1em;color:var(--gold-bright);margin-top:8px;text-transform:uppercase;}
-.warcard{background:linear-gradient(160deg,rgba(40,16,18,.9),rgba(18,9,10,.92));border:1px solid rgba(230,57,70,.4);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.warcard{background:linear-gradient(160deg,rgba(40,16,18,.92),rgba(18,9,10,.95)),url('/crowd-wc.jpg') center top / cover;border:1px solid rgba(230,57,70,.4);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
 .war-live{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.14em;color:#ff6b78;margin-bottom:8px;}
 .war-score{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;}
 .war-team{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-family:'Bebas Neue';font-size:15px;text-align:center;line-height:1;}
@@ -357,7 +372,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 @keyframes trophySway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
 .calledit{margin-top:10px;text-align:center;font-family:'Bebas Neue';letter-spacing:.1em;font-size:19px;color:var(--gold-bright);animation:calledIn .6s cubic-bezier(.2,1.4,.4,1), goldPulse 2s ease-in-out infinite;}
 @keyframes calledIn{0%{transform:translateY(10px) scale(.8);opacity:0}100%{transform:none;opacity:1}}
-.payout{position:fixed;inset:0;z-index:300;background:rgba(5,8,6,.93);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
+.payout{position:fixed;inset:0;z-index:300;background:linear-gradient(180deg,rgba(5,8,6,.88),rgba(5,8,6,.94)),url('/stadium-celebration.jpg') center / cover fixed;backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
 @keyframes payIn{from{opacity:0}to{opacity:1}}
 .payout-card{text-align:center;padding:32px 40px;animation:cardPop .5s cubic-bezier(.2,1.5,.4,1);}
 @keyframes cardPop{0%{transform:scale(.65);opacity:0}100%{transform:scale(1);opacity:1}}
@@ -533,11 +548,10 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .emoji-opt.on{border-color:var(--gold-bright);background:rgba(240,201,58,.15);}
 .emoji-opt:hover{border-color:rgba(201,168,76,.5);}
 /* welcome / loading screen */
-.welcome-screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#06140c;z-index:200;gap:0;overflow:hidden;}
-.welcome-canvas{position:absolute;top:0;left:0;width:100%;height:45%;pointer-events:none;z-index:0;}
+.welcome-screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(6,20,12,0.88),rgba(6,20,12,0.88)),url('/stadium-bg.jpg') center center / cover no-repeat;z-index:200;gap:0;overflow:hidden;}
 .welcome-stack{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;}
 .welcome-bottom{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;}
-.welcome-trophy{font-size:72px;animation:trophyWelcome 2.4s ease-in-out infinite;filter:drop-shadow(0 0 24px rgba(240,201,58,0.7));}
+.welcome-trophy-img{width:160px;object-fit:contain;border-radius:12px;animation:trophyWelcome 2.4s ease-in-out infinite;filter:drop-shadow(0 0 40px rgba(240,201,58,0.6));}
 @keyframes trophyWelcome{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .welcome-title{font-family:'Bebas Neue';font-size:clamp(36px,9vw,64px);letter-spacing:.04em;line-height:1;margin-top:6px;
   background:linear-gradient(100deg,#fff 20%,var(--gold-bright) 45%,#fff 70%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -1517,7 +1531,6 @@ const WELCOME_MSGS = [
 ];
 
 function WelcomeScreen({ errBanner }) {
-  const canvasRef = useRef(null);
   const [msgIdx, setMsgIdx] = useState(0);
 
   useEffect(() => {
@@ -1525,102 +1538,13 @@ function WelcomeScreen({ errBanner }) {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    const cv = canvasRef.current;
-    if (!cv) return;
-    const ctx = cv.getContext("2d");
-    if (!ctx) return;
-    const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let W = 0, H = 0, raf = null;
-
-    const particles = Array.from({ length: 4 }, () => ({
-      x: Math.random(), y: Math.random(),
-      r: 1.8 + Math.random() * 1.6,
-      vy: 0.0009 + Math.random() * 0.0012,
-      drift: (Math.random() - 0.5) * 0.0006,
-      op: 0.35 + Math.random() * 0.35,
-    }));
-    const beams = [{ ox: 0.08, ph: 0.0 }, { ox: 0.92, ph: 2.4 }];
-
-    function resize() {
-      const rect = cv.getBoundingClientRect();
-      W = rect.width; H = rect.height;
-      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (reduce) draw(0);
-    }
-
-    function drawPitch() {
-      const m = Math.min(W, H) * 0.07;
-      const x0 = m, y0 = m, w = W - m * 2, h = H - m * 2, x1 = x0 + w, y1 = y0 + h;
-      ctx.strokeStyle = "rgba(22,194,100,0.15)";
-      ctx.fillStyle = "rgba(22,194,100,0.15)";
-      ctx.lineWidth = 1.4;
-      ctx.strokeRect(x0, y0, w, h);
-      ctx.beginPath(); ctx.moveTo(x0, y0 + h / 2); ctx.lineTo(x1, y0 + h / 2); ctx.stroke();
-      const cr = Math.min(w, h) * 0.14;
-      ctx.beginPath(); ctx.arc(x0 + w / 2, y0 + h / 2, cr, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(x0 + w / 2, y0 + h / 2, 2, 0, Math.PI * 2); ctx.fill();
-      const pbw = w * 0.46, pbh = h * 0.16;
-      ctx.strokeRect(x0 + (w - pbw) / 2, y0, pbw, pbh);
-      ctx.strokeRect(x0 + (w - pbw) / 2, y1 - pbh, pbw, pbh);
-      const gbw = w * 0.22, gbh = h * 0.07;
-      ctx.strokeRect(x0 + (w - gbw) / 2, y0, gbw, gbh);
-      ctx.strokeRect(x0 + (w - gbw) / 2, y1 - gbh, gbw, gbh);
-      const ca = Math.min(w, h) * 0.035;
-      ctx.beginPath(); ctx.arc(x0, y0, ca, 0, Math.PI / 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(x1, y0, ca, Math.PI / 2, Math.PI); ctx.stroke();
-      ctx.beginPath(); ctx.arc(x1, y1, ca, Math.PI, Math.PI * 1.5); ctx.stroke();
-      ctx.beginPath(); ctx.arc(x0, y1, ca, Math.PI * 1.5, Math.PI * 2); ctx.stroke();
-    }
-
-    function draw(now) {
-      ctx.clearRect(0, 0, W, H);
-      for (const b of beams) {
-        const ox = b.ox * W;
-        const tip = W * 0.5 + Math.sin(now * 0.0004 + b.ph) * W * 0.18;
-        const tipY = H * 1.05;
-        const g = ctx.createRadialGradient(ox, -H * 0.1, 0, tip, tipY, H * 1.1);
-        g.addColorStop(0, "rgba(255,255,255,0.06)");
-        g.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.moveTo(ox, -H * 0.1);
-        ctx.lineTo(tip - W * 0.18, tipY);
-        ctx.lineTo(tip + W * 0.18, tipY);
-        ctx.closePath();
-        ctx.fill();
-      }
-      drawPitch();
-      for (const p of particles) {
-        p.y -= p.vy; p.x += p.drift;
-        if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); }
-        ctx.beginPath();
-        ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,214,51,${p.op})`;
-        ctx.shadowColor = "rgba(255,214,51,0.8)";
-        ctx.shadowBlur = 8;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-      raf = requestAnimationFrame(draw);
-    }
-
-    resize();
-    window.addEventListener("resize", resize);
-    if (!reduce) raf = requestAnimationFrame(draw);
-    return () => { window.removeEventListener("resize", resize); if (raf) cancelAnimationFrame(raf); };
-  }, []);
-
   return (
     <div className="wc-app">
       <style>{CSS + MASCOT_CSS}</style>
       {errBanner}
       <div className="welcome-screen">
-        <canvas ref={canvasRef} className="welcome-canvas" aria-hidden />
         <div className="welcome-stack">
-          <div className="welcome-trophy">🏆</div>
+          <img src="/trophy-hero.jpg" className="welcome-trophy-img" alt="" aria-hidden />
           <div className="welcome-title">WORLD CUP 2026</div>
           <div className="welcome-tagline">THE LEAGUE IS LOADING</div>
           <div className="welcome-flags">
@@ -2482,6 +2406,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
       )}
       <div className="hero hero-grand">
         <div className="hero-glow" aria-hidden />
+        <img src="/trophy-hero.jpg" className="hero-trophy-img" alt="" aria-hidden />
         <div className="hero-kicker barlow">⚽ The Road to Glory ⚽</div>
         <h1 className="hero-mega">WORLD CUP<span>2026</span></h1>
         <div className="sub">{game.config.groupName} · Private Prediction League</div>
@@ -3927,16 +3852,6 @@ const GLOBE_ZONES = [
   { lat: -0.3, lon: 5.5, color: "#ff5fa2", icon: "🎯", label: "STATS", tab: "stats" },
 ];
 const GLOBE_TAB_KEYS = new Set(GLOBE_ZONES.map((z) => z.tab));
-// Impressionistic landmasses — fixed sphere coords, drawn only on the visible face.
-const GLOBE_BLOBS = [
-  { lat: 0.45, lon: 0.5, rx: 0.42, ry: 0.30, tone: "rgba(20,110,60,0.55)" },
-  { lat: -0.1, lon: 1.4, rx: 0.34, ry: 0.46, tone: "rgba(14,86,46,0.50)" },
-  { lat: 0.15, lon: 2.6, rx: 0.50, ry: 0.30, tone: "rgba(24,130,70,0.45)" },
-  { lat: -0.5, lon: 3.6, rx: 0.30, ry: 0.26, tone: "rgba(16,96,52,0.50)" },
-  { lat: 0.55, lon: 4.3, rx: 0.30, ry: 0.22, tone: "rgba(20,110,60,0.42)" },
-  { lat: -0.25, lon: 5.0, rx: 0.40, ry: 0.34, tone: "rgba(14,86,46,0.50)" },
-  { lat: 0.0, lon: 5.9, rx: 0.26, ry: 0.40, tone: "rgba(24,130,70,0.42)" },
-];
 function hexA(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
@@ -3944,6 +3859,8 @@ function hexA(hex, a) {
 
 function GlobeNav({ mini, activeTab, onSelect }) {
   const canvasRef = useRef(null);
+  const sphereRef = useRef(null);
+  const atmoRef = useRef(null);
   const stateRef = useRef(null);
   if (!stateRef.current) {
     stateRef.current = {
@@ -3953,7 +3870,6 @@ function GlobeNav({ mini, activeTab, onSelect }) {
       morph: mini ? 1 : 0, morphV: 0,
       flashTab: null, flashUntil: 0, t: 0, trail: [],
       cx: 0, cy: 0, R: 1,
-      stars: Array.from({ length: 80 }, () => ({ x: Math.random(), y: Math.random(), o: 0.2 + Math.random() * 0.4, r: Math.random() < 0.2 ? 1.4 : 0.9 })),
     };
   }
   const propsRef = useRef({ mini, activeTab, onSelect });
@@ -4075,68 +3991,21 @@ function GlobeNav({ mini, activeTab, onSelect }) {
 
       ctx.clearRect(0, 0, W, H);
 
-      // stars behind the sphere (fade out as it shrinks to the corner)
-      const starA = 1 - m;
-      if (starA > 0.02) {
-        ctx.fillStyle = "#fff";
-        for (const st of s.stars) { ctx.globalAlpha = st.o * starA; ctx.fillRect(st.x * W, st.y * H, st.r, st.r); }
-        ctx.globalAlpha = 1;
+      // drive the CSS pitch-aerial sphere to follow the morph + rotation;
+      // the canvas above only paints zones/overlays, transparent elsewhere
+      const sphereEl = sphereRef.current, atmoEl = atmoRef.current;
+      if (sphereEl) {
+        let bgX = ((s.rotY / TAU) % 1) * 100; if (bgX < 0) bgX += 100;
+        const d = R * 2;
+        sphereEl.style.left = cx + "px"; sphereEl.style.top = cy + "px";
+        sphereEl.style.width = d + "px"; sphereEl.style.height = d + "px";
+        sphereEl.style.backgroundPosition = `center, ${bgX}% center`;
       }
-
-      // atmosphere — planet-from-space glow
-      const atmo = ctx.createRadialGradient(cx, cy, R * 0.55, cx, cy, R * 1.5);
-      atmo.addColorStop(0, "rgba(22,194,100,0.15)");
-      atmo.addColorStop(0.55, "rgba(150,220,170,0.05)");
-      atmo.addColorStop(1, "rgba(22,194,100,0)");
-      ctx.fillStyle = atmo; ctx.beginPath(); ctx.arc(cx, cy, R * 1.5, 0, TAU); ctx.fill();
-
-      // sphere body, clipped to a clean disc (keeps the corner mini-globe round)
-      ctx.save();
-      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.clip();
-      const lit = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.35, R * 0.1, cx, cy, R * 1.15);
-      lit.addColorStop(0, "rgba(30,80,45,0.92)");
-      lit.addColorStop(0.6, "rgba(14,46,28,0.95)");
-      lit.addColorStop(1, "rgba(5,15,8,0.98)");
-      ctx.fillStyle = lit; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
-
-      // landmasses
-      for (const b of GLOBE_BLOBS) {
-        const p = proj(b.lat, b.lon);
-        if (p.z <= 0.1) continue;
-        ctx.save();
-        ctx.globalAlpha = Math.min(1, p.z) * 0.8;
-        ctx.translate(p.x, p.y); ctx.fillStyle = b.tone;
-        ctx.beginPath(); ctx.ellipse(0, 0, b.rx * R * p.z, b.ry * R * p.z * 0.8, b.lon + s.rotY, 0, TAU); ctx.fill();
-        ctx.restore();
+      if (atmoEl) {
+        const ad = R * 2 * 1.18;
+        atmoEl.style.left = cx + "px"; atmoEl.style.top = cy + "px";
+        atmoEl.style.width = ad + "px"; atmoEl.style.height = ad + "px";
       }
-      ctx.globalAlpha = 1;
-
-      // lat/lon grid on the visible hemisphere
-      ctx.lineWidth = 1;
-      for (let la = -60; la <= 60; la += 30) {
-        const lat = la * Math.PI / 180; let on = false; ctx.beginPath();
-        for (let lo = 0; lo <= 360; lo += 12) { const p = proj(lat, lo * Math.PI / 180); if (p.z > 0) { if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y); } else on = false; }
-        ctx.strokeStyle = "rgba(22,194,100,0.25)"; ctx.stroke();
-      }
-      for (let lo = 0; lo < 360; lo += 30) {
-        const lon = lo * Math.PI / 180; let on = false; ctx.beginPath();
-        for (let la = -90; la <= 90; la += 9) { const p = proj(la * Math.PI / 180, lon); if (p.z > 0) { if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y); } else on = false; }
-        ctx.strokeStyle = "rgba(22,194,100,0.18)"; ctx.stroke();
-      }
-
-      // dark shading on the bottom-right for depth
-      const sh = ctx.createRadialGradient(cx + R * 0.5, cy + R * 0.55, 0, cx + R * 0.1, cy + R * 0.2, R * 1.45);
-      sh.addColorStop(0, "rgba(0,0,0,0.5)"); sh.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = sh; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
-      // specular highlight, top-left
-      const spec = ctx.createRadialGradient(cx - R * 0.4, cy - R * 0.45, 0, cx - R * 0.4, cy - R * 0.45, R * 0.6);
-      spec.addColorStop(0, "rgba(255,255,255,0.12)"); spec.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = spec; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
-      ctx.restore();
-
-      // rim
-      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU);
-      ctx.strokeStyle = "rgba(22,194,100,0.35)"; ctx.lineWidth = 1.5; ctx.stroke();
 
       const front = nearestZone();
       // motion trail of the front zone (skipped on slow frames)
@@ -4207,7 +4076,13 @@ function GlobeNav({ mini, activeTab, onSelect }) {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className={`globe-canvas${mini ? " is-mini" : ""}`} aria-label="globe navigation" />;
+  return (
+    <>
+      <div ref={atmoRef} className="globe-atmosphere" aria-hidden style={{ zIndex: mini ? 55 : 18 }} />
+      <div ref={sphereRef} className="globe-sphere" aria-hidden style={{ zIndex: mini ? 56 : 19 }} />
+      <canvas ref={canvasRef} className={`globe-canvas${mini ? " is-mini" : ""}`} aria-label="globe navigation" />
+    </>
+  );
 }
 
 /* ════════════════ APP SHELL ════════════════ */
