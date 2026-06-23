@@ -1603,73 +1603,316 @@ function TodayPage({ game, me, go }) {
   );
 }
 
-function BracketPage({ game, me, mutate }) {
+function StatsPage({ game, me, mutate }) {
+  const [sub, setSub] = useState("stats");
+  const [takeText, setTakeText] = useState("");
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
-  const teams = game.teams.filter((t) => t.eligible !== false).sort((a, b) => a.name.localeCompare(b.name));
-  const [viewPid, setViewPid] = useState(me ? me.id : (game.players[0]?.id || null));
-  const SLOTS = [
-    { key: "champion", label: "🏆 Champion", big: true },
-    { key: "runnerUp", label: "🥈 Runner-up" },
-    { key: "sf1", label: "Semi-finalist" },
-    { key: "sf2", label: "Semi-finalist" },
-  ];
-  const myBracket = (me && game.brackets?.[me.id]) || {};
-  const setSlot = (key, teamId) => {
-    if (!me) return;
+  const finishedMatches = game.matches.filter((m) => m.status === "finished");
+  const standings = computeStandings(game).sort((a, b) => b.total - a.total);
+
+  const teamPickCount = {};
+  const teamApps = {};
+  for (const m of game.matches) {
+    if (m.teamA) teamApps[m.teamA] = (teamApps[m.teamA] || 0) + 1;
+    if (m.teamB) teamApps[m.teamB] = (teamApps[m.teamB] || 0) + 1;
+    const mPicks = game.picks[m.id] || {};
+    for (const pid in mPicks) {
+      const pred = mPicks[pid]?.pred;
+      if (pred === "A") teamPickCount[m.teamA] = (teamPickCount[m.teamA] || 0) + 1;
+      else if (pred === "B") teamPickCount[m.teamB] = (teamPickCount[m.teamB] || 0) + 1;
+    }
+  }
+  const sortedByCount = Object.entries(teamPickCount).sort((a, b) => b[1] - a[1]);
+  const mostBackedTeam = sortedByCount[0] ? tById[sortedByCount[0][0]] : null;
+  const mostBackedCount = sortedByCount[0]?.[1] || 0;
+
+  const bankerEntry = [...Object.entries(teamPickCount)].sort((a, b) =>
+    (b[1] / (teamApps[b[0]] || 1)) - (a[1] / (teamApps[a[0]] || 1))
+  )[0];
+  const bankerTeam = bankerEntry ? tById[bankerEntry[0]] : null;
+  const bankerPct = bankerEntry && teamApps[bankerEntry[0]] && game.players.length
+    ? Math.round((bankerEntry[1] / teamApps[bankerEntry[0]]) / game.players.length * 100)
+    : 0;
+
+  let biggestUpset = null;
+  let minCorrect = Infinity;
+  for (const m of finishedMatches) {
+    const res = matchResult(m);
+    if (!res || res === "D") continue;
+    const mPicks = game.picks[m.id] || {};
+    let correct = 0, total = 0;
+    for (const pid in mPicks) {
+      const pred = mPicks[pid]?.pred;
+      if (pred) { total++; if (pred === res) correct++; }
+    }
+    if (correct < minCorrect) { minCorrect = correct; biggestUpset = { m, correct, total }; }
+  }
+  const upsetRes = biggestUpset ? matchResult(biggestUpset.m) : null;
+  const upsetWinner = upsetRes ? tById[upsetRes === "A" ? biggestUpset.m.teamA : biggestUpset.m.teamB] : null;
+  const upsetLoser = upsetRes ? tById[upsetRes === "A" ? biggestUpset.m.teamB : biggestUpset.m.teamA] : null;
+
+  const contrarian = {};
+  for (const m of finishedMatches) {
+    const res = matchResult(m);
+    if (!res) continue;
+    const sp = pickSplit(game, m);
+    const majority = sp.A >= sp.B && sp.A >= sp.D ? "A" : sp.B >= sp.A && sp.B >= sp.D ? "B" : "D";
+    const mPicks = game.picks[m.id] || {};
+    for (const pid in mPicks) {
+      const pred = mPicks[pid]?.pred;
+      if (pred && pred !== majority && pred === res) contrarian[pid] = (contrarian[pid] || 0) + 1;
+    }
+  }
+  const topContrarian = Object.entries(contrarian).sort((a, b) => b[1] - a[1])[0];
+  const contrarianPlayer = topContrarian ? game.players.find((p) => p.id === topContrarian[0]) : null;
+
+  function wrongStreak(pid) {
+    const fin = game.matches.filter((m) => m.status === "finished")
+      .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+    let s = 0;
+    for (let i = fin.length - 1; i >= 0; i--) {
+      const pk = game.picks[fin[i].id]?.[pid];
+      if (!pk) continue;
+      if (pk.pred !== matchResult(fin[i])) s++; else break;
+    }
+    return s;
+  }
+  const coldRanked = game.players.map((p) => ({ p, streak: wrongStreak(p.id) })).sort((a, b) => b.streak - a.streak);
+  const iceCold = coldRanked[0];
+
+  let rivalA = null, rivalB = null, minDiff = Infinity;
+  for (let i = 0; i < standings.length - 1; i++) {
+    const diff = standings[i].total - standings[i + 1].total;
+    if (diff < minDiff) { minDiff = diff; rivalA = standings[i]; rivalB = standings[i + 1]; }
+  }
+  function playerAccuracy(pid) {
+    if (!finishedMatches.length) return 0;
+    let correct = 0;
+    for (const m of finishedMatches) {
+      if (game.picks[m.id]?.[pid]?.pred === matchResult(m)) correct++;
+    }
+    return Math.round(correct / finishedMatches.length * 100);
+  }
+
+  const takes = (game.hottakes || []).slice().reverse();
+  const totReactions = (t) => Object.values(t.reactions || {}).reduce((s, r) => s + Object.keys(r).length, 0);
+  const topTake = takes.reduce((best, t) => (!best || totReactions(t) > totReactions(best) ? t : best), null);
+
+  const postTake = () => {
+    if (!me || !takeText.trim()) return;
     SFX.pick();
     mutate((g) => {
-      if (!g.brackets) g.brackets = {};
-      if (!g.brackets[me.id]) g.brackets[me.id] = {};
-      g.brackets[me.id][key] = teamId;
+      if (!g.hottakes) g.hottakes = [];
+      g.hottakes.push({ id: uid(), by: me.id, name: me.name, text: takeText.trim(), at: Date.now(), reactions: {} });
+      if (g.hottakes.length > 50) g.hottakes = g.hottakes.slice(-50);
+    });
+    setTakeText("");
+  };
+
+  const reactTake = (takeId, emoji) => {
+    if (!me) return;
+    SFX.click();
+    mutate((g) => {
+      const take = (g.hottakes || []).find((t) => t.id === takeId);
+      if (!take) return;
+      if (!take.reactions) take.reactions = {};
+      if (!take.reactions[emoji]) take.reactions[emoji] = {};
+      if (take.reactions[emoji][me.id]) delete take.reactions[emoji][me.id];
+      else take.reactions[emoji][me.id] = true;
     });
   };
-  const viewing = viewPid ? (game.brackets?.[viewPid] || {}) : {};
-  const viewPlayer = game.players.find((p) => p.id === viewPid);
+
+  const receipts = [];
+  for (const m of finishedMatches) {
+    const res = matchResult(m);
+    if (!res) continue;
+    const mPicks = game.picks[m.id] || {};
+    for (const pid in mPicks) {
+      const pred = mPicks[pid]?.pred;
+      if (!pred || pred === "D" || pred === res) continue;
+      const player = game.players.find((p) => p.id === pid);
+      const pickedTeam = tById[pred === "A" ? m.teamA : m.teamB];
+      const winTeam = tById[res === "A" ? m.teamA : m.teamB];
+      if (player && pickedTeam && winTeam) receipts.push({ player, pickedTeam, winTeam, m });
+    }
+  }
+  receipts.sort((a, b) => new Date(b.m.kickoff) - new Date(a.m.kickoff));
+
+  const TAKE_REACTIONS = ["🔥", "😂", "💀", "👀", "🤡"];
+  const renderStatCard = (icon, headline, value, desc) => (
+    <div className="panel" style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <span style={{ fontSize: 26, lineHeight: 1.2, flexShrink: 0 }}>{icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="barlow" style={{ fontSize: 10, color: "var(--muted)", marginBottom: 2 }}>{headline}</div>
+          <div className="bebas" style={{ fontSize: 22, color: "var(--gold-bright)", lineHeight: 1.15, wordBreak: "break-word" }}>{value}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{desc}</div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="page">
       <div className="hero" style={{ padding: "22px 16px" }}>
-        <h1 style={{ fontSize: "clamp(30px,7vw,50px)" }}>CRYSTAL BALL</h1>
-        <div className="sub">🔮 Call the knockouts · just for bragging</div>
+        <h1 style={{ fontSize: "clamp(30px,7vw,50px)" }}>STATS & BANTER</h1>
+        <div className="sub">🎯 Numbers don't lie · takes do</div>
       </div>
 
-      {me && (
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <div className="barlow gold" style={{ marginBottom: 8, letterSpacing: ".1em" }}>YOUR PREDICTIONS</div>
-          {SLOTS.map((s) => (
-            <div key={s.key} className="brk-slot">
-              <label className="brk-label">{s.label}</label>
-              <select className="brk-select" value={myBracket[s.key] || ""} onChange={(e) => setSlot(s.key, e.target.value)}>
-                <option value="">— pick —</option>
-                {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-          ))}
-          <div className="note">Everyone can see everyone's calls — choose wisely, the receipts are public. 👀</div>
-        </div>
-      )}
-
-      <div className="h-sec">Everyone's crystal ball</div>
-      <div className="subtab" style={{ flexWrap: "wrap" }}>
-        {game.players.map((p) => (
-          <button key={p.id} className={`btn ${viewPid === p.id ? "btn-gold" : "btn-ghost"}`} style={{ fontSize: 12 }} onClick={() => setViewPid(p.id)}>{p.avatar} {p.name}</button>
+      <div className="subtab" style={{ margin: "14px 0 16px" }}>
+        {[["stats", "📊 Stats"], ["banter", "🔥 Banter"]].map(([k, l]) => (
+          <button key={k} className={`btn ${sub === k ? "btn-gold" : "btn-ghost"}`}
+            onClick={() => { setSub(k); SFX.click(); }}>{l}</button>
         ))}
       </div>
-      {viewPlayer && (
-        <div className="panel">
-          <div className="barlow gold" style={{ marginBottom: 10 }}>{viewPlayer.avatar} {viewPlayer.name}'s calls</div>
-          {SLOTS.map((s) => {
-            const t = viewing[s.key] ? tById[viewing[s.key]] : null;
+
+      {sub === "stats" && (
+        <>
+          {!finishedMatches.length && <div className="note">No finished matches yet — check back once games start.</div>}
+          {mostBackedTeam && renderStatCard(
+            mostBackedTeam.flag, "MOST BACKED TEAM",
+            `${mostBackedTeam.name} · ${mostBackedCount} picks`,
+            "The fan favourite across all matches so far"
+          )}
+          {biggestUpset && upsetWinner && renderStatCard(
+            "💥", "BIGGEST UPSET NO ONE CALLED",
+            `${upsetWinner.flag} ${upsetWinner.name} beat ${upsetLoser?.flag || ""} ${upsetLoser?.name || "?"}`,
+            `Only ${biggestUpset.correct}/${biggestUpset.total} called it`
+          )}
+          {bankerTeam && renderStatCard(
+            bankerTeam.flag, "THE BANKER",
+            bankerTeam.name,
+            `Picked ${bankerPct}% of the time per match — everyone's automatic`
+          )}
+          {contrarianPlayer && renderStatCard(
+            contrarianPlayer.avatar, "MOST CONTRARIAN",
+            `${contrarianPlayer.name} · ${topContrarian[1]}x`,
+            "Went against the crowd and was right"
+          )}
+          {iceCold && iceCold.streak > 0 && renderStatCard(
+            "🧊", "ICE COLD",
+            `${iceCold.p.name} · ${iceCold.streak} wrong in a row`,
+            "Longest current losing streak"
+          )}
+          {rivalA && rivalB && (
+            <div className="panel" style={{ marginBottom: 10 }}>
+              <div className="barlow" style={{ fontSize: 10, color: "var(--muted)", marginBottom: 10 }}>RIVALRY OF THE WEEK</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 22 }}>{rivalA.p.avatar}</span>
+                <span className="bebas" style={{ fontSize: 16, flex: 1 }}>{rivalA.p.name}</span>
+                <span className="bebas" style={{ fontSize: 28, color: "var(--gold-bright)" }}>{rivalA.total}</span>
+                <span className="bebas" style={{ fontSize: 13, color: "var(--muted)", padding: "0 6px" }}>VS</span>
+                <span className="bebas" style={{ fontSize: 28, color: "var(--gold-bright)" }}>{rivalB.total}</span>
+                <span className="bebas" style={{ fontSize: 16, flex: 1, textAlign: "right" }}>{rivalB.p.name}</span>
+                <span style={{ fontSize: 22 }}>{rivalB.p.avatar}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 3 }}>{rivalA.p.name}</div>
+                  <div style={{ height: 8, borderRadius: 4, background: "#0a1a10", overflow: "hidden" }}>
+                    <div style={{ width: `${playerAccuracy(rivalA.p.id)}%`, height: "100%", background: "var(--gold-bright)", borderRadius: 4, transition: "width .5s ease" }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--gold-bright)", marginTop: 2 }}>{playerAccuracy(rivalA.p.id)}% accurate</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 3 }}>{rivalB.p.name}</div>
+                  <div style={{ height: 8, borderRadius: 4, background: "#0a1a10", overflow: "hidden" }}>
+                    <div style={{ width: `${playerAccuracy(rivalB.p.id)}%`, height: "100%", background: "var(--sky)", borderRadius: 4, transition: "width .5s ease" }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--sky)", marginTop: 2 }}>{playerAccuracy(rivalB.p.id)}% accurate</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8, textAlign: "center" }}>
+                Separated by {minDiff} pt{minDiff !== 1 ? "s" : ""}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {sub === "banter" && (
+        <>
+          {me ? (
+            <div className="panel" style={{ marginBottom: 14 }}>
+              <div className="barlow" style={{ fontSize: 10, color: "var(--muted)", marginBottom: 8 }}>POST A TAKE</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={takeText} onChange={(e) => setTakeText(e.target.value.slice(0, 120))}
+                  placeholder="Drop your hot take..." style={{ flex: 1 }}
+                  onKeyDown={(e) => e.key === "Enter" && postTake()} />
+                <button className="btn btn-gold" onClick={postTake} disabled={!takeText.trim()}>Post</button>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, textAlign: "right" }}>{takeText.length}/120</div>
+            </div>
+          ) : (
+            <div className="note" style={{ marginBottom: 14 }}>Select your player above to post takes.</div>
+          )}
+
+          {topTake && totReactions(topTake) > 0 && (
+            <div style={{ background: "linear-gradient(135deg,rgba(240,201,58,.15),rgba(240,201,58,.06))", border: "1px solid var(--gold)", borderRadius: 14, padding: "12px 14px", marginBottom: 14 }}>
+              <div className="barlow" style={{ fontSize: 10, color: "var(--gold-bright)", marginBottom: 6, letterSpacing: ".15em" }}>🔥 TAKE OF THE DAY</div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <span style={{ fontSize: 20 }}>{game.players.find((p) => p.id === topTake.by)?.avatar || "👤"}</span>
+                <div>
+                  <span style={{ fontSize: 13, color: "var(--gold-bright)", fontWeight: 600 }}>{topTake.name}</span>
+                  <div style={{ fontSize: 14, margin: "4px 0" }}>{topTake.text}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{totReactions(topTake)} reactions · {timeAgo(topTake.at)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {takes.length === 0 && (
+            <div className="note">No takes yet — be the first to say something questionable. 🎤</div>
+          )}
+
+          {takes.map((take) => {
+            const author = game.players.find((p) => p.id === take.by);
             return (
-              <div key={s.key} className={`brk-view ${s.big ? "brk-view-big" : ""}`}>
-                <span className="brk-vlabel">{s.label}</span>
-                <span className="brk-vteam">{t ? <><Flag name={t.name} size={s.big ? 26 : 20} /> {t.name}</> : <span className="muted">—</span>}</span>
+              <div key={take.id} className="panel" style={{ marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <span style={{ fontSize: 22, lineHeight: 1.2 }}>{author?.avatar || "👤"}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--gold-bright)" }}>{take.name}</span>
+                      <span style={{ fontSize: 11, color: "var(--muted)" }}>{timeAgo(take.at)}</span>
+                    </div>
+                    <div style={{ fontSize: 14, margin: "6px 0 10px", lineHeight: 1.5 }}>{take.text}</div>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      {TAKE_REACTIONS.map((emoji) => {
+                        const count = Object.keys(take.reactions?.[emoji] || {}).length;
+                        const myReact = me && take.reactions?.[emoji]?.[me.id];
+                        return (
+                          <button key={emoji}
+                            style={{ background: myReact ? "rgba(240,201,58,.18)" : "#0d1f14", border: `1px solid ${myReact ? "var(--gold)" : "rgba(138,170,150,.2)"}`, borderRadius: 999, padding: "4px 10px", fontSize: 15, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
+                            onClick={() => reactTake(take.id, emoji)}>
+                            {emoji}{count > 0 && <span style={{ fontSize: 11, color: "var(--gold-bright)", fontFamily: "'Bebas Neue'" }}>{count}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           })}
-        </div>
+
+          {receipts.length > 0 && (
+            <>
+              <div className="h-sec">Aged badly 💀</div>
+              {receipts.slice(0, 20).map((r, i) => (
+                <div key={i} style={{ background: "rgba(230,57,70,.08)", border: "1px solid rgba(230,57,70,.3)", borderRadius: 12, padding: "10px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                  <span style={{ fontSize: 18 }}>{r.player.avatar}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ color: "var(--gold-bright)", fontWeight: 600 }}>{r.player.name}</span>{" "}
+                    backed {r.pickedTeam.flag} <span style={{ color: "#f1a0a7" }}>{r.pickedTeam.name}</span>
+                    <span style={{ color: "var(--muted)" }}> · lost to {r.winTeam.flag} {r.winTeam.name}</span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </>
       )}
-      <div className="note">Pure fun — bracket calls don't affect points or prizes. Bragging rights only. 😤</div>
     </div>
   );
 }
@@ -3328,7 +3571,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v54</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v55</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -3353,7 +3596,7 @@ export default function App() {
 
   const ALL_TABS = [
     ["today", "📅", "Today"], ["picks", "✅", "Picks"], ["war", "⚔️", "War Room"], ["scores", "📺", "Scores"],
-    ["board", "🏆", "Table"], ["bracket", "🔮", "Bracket"], ["shame", "💀", "Shame"], ["underdog", "🐉", "Underdog"],
+    ["board", "🏆", "Table"], ["stats", "🎯", "Stats"], ["shame", "💀", "Shame"], ["underdog", "🐉", "Underdog"],
     ["final8", "🎯", "Final 8"], ["prizes", "💰", "Prizes"], ["home", "🏟️", "Home"], ["admin", "🛠️", "Admin"],
   ];
 
@@ -3422,7 +3665,7 @@ export default function App() {
       {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} isAdmin={isAdmin} />}
       {tab === "scores" && <LiveScoresPage game={game} onRefresh={() => pullFixtures(true)} />}
       {tab === "war" && <WarRoom game={game} me={me} mutate={mutate} onRefresh={() => pullFixtures(true)} />}
-      {tab === "bracket" && <BracketPage game={game} me={me} mutate={mutate} />}
+      {tab === "stats" && <StatsPage game={game} me={me} mutate={mutate} />}
       {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
       {tab === "final8" && <Final8Page game={game} me={me} mutate={mutate} />}
       {tab === "board" && <LeaderboardPage game={game} meId={meId} />}
