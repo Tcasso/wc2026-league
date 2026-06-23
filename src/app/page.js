@@ -44,7 +44,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .wc-app{
   min-height:100vh; color:var(--white); font-family:'Inter',sans-serif;
   background:#06140c;
-  padding-bottom:90px;
+  padding-bottom:0;
 }
 .bebas{font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;}
 .barlow{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;}
@@ -83,26 +83,22 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .coin .back{transform:rotateY(180deg);}
 @keyframes coinSpin{0%{transform:rotateY(0)}100%{transform:rotateY(360deg)}}
 
-/* tabs — floating professional dock */
-.tabs{position:fixed;bottom:0;left:0;right:0;z-index:50;display:flex;gap:4px;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
-  background:
-    linear-gradient(180deg, rgba(13,46,28,.86), rgba(7,22,14,.94));
-  backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);
-  border-top:1px solid rgba(22,194,100,.35);
-  box-shadow:0 -1px 0 rgba(255,255,255,.06) inset, 0 -10px 30px rgba(0,0,0,.45);
-  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent);mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent);}
-.tabs::-webkit-scrollbar{height:0;}
-.tab{position:relative;flex:0 0 auto;scroll-snap-align:center;min-width:60px;background:none;border:none;color:var(--muted);cursor:pointer;
-  font-family:'Barlow Condensed';font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;
-  display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 9px 6px;border-radius:13px;
-  transition:color .22s ease, background .22s ease, transform .18s cubic-bezier(.2,.8,.3,1);}
-.tab .ic{font-size:20px;line-height:1;transition:transform .22s cubic-bezier(.2,1.5,.4,1);filter:grayscale(.35) opacity(.7);}
-.tab.on{color:var(--gold-bright);background:linear-gradient(180deg,rgba(240,201,58,.22),rgba(240,201,58,.06));box-shadow:0 -3px 12px rgba(240,201,58,.4),inset 0 0 0 1px rgba(240,201,58,.35);transform:translateY(-2px);}
-.tab.on .ic{filter:none;transform:translateY(-1px) scale(1.12);}
-.tab.on::before{content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:22px;height:3px;border-radius:0 0 3px 3px;background:var(--gold-bright);box-shadow:0 0 12px rgba(240,201,58,.95),0 0 24px rgba(240,201,58,.4);}
-.tab:active{transform:scale(.92);}
-.tab:focus-visible{outline:2px solid var(--sky);}
+/* 3D globe navigation — the globe IS the nav */
+.globe-canvas{position:fixed;inset:0;width:100vw;height:100vh;touch-action:none;cursor:grab;z-index:20;}
+.globe-canvas:active{cursor:grabbing;}
+.globe-canvas.is-mini{pointer-events:none;z-index:57;cursor:default;}
+.globe-mini-hit{position:fixed;bottom:14px;right:6px;width:120px;height:120px;border-radius:50%;background:none;border:none;z-index:58;cursor:pointer;}
+.globe-mini-hit:active{transform:scale(.94);}
+.globe-title{position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;text-align:center;padding:14px 12px;font-family:'Bebas Neue';font-size:28px;z-index:30;pointer-events:none;}
+.globe-title .hype-title{flex:none;display:inline-block;font-size:28px;}
+.globe-player{position:fixed;top:calc(env(safe-area-inset-top,0) + 12px);right:12px;z-index:35;max-width:48vw;}
+.globe-player .who{font-size:13px;padding:7px 11px;border-color:rgba(240,201,58,.5);background:rgba(7,22,14,.88);border-radius:999px;}
+.globe-pip{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(7,22,14,.85);border:1px solid var(--gold);border-radius:999px;padding:6px 18px;font-family:'Bebas Neue';font-size:20px;letter-spacing:.04em;color:var(--gold-bright);display:flex;align-items:center;gap:3px;box-shadow:0 0 24px rgba(240,201,58,.25);}
+.globe-hint{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);z-index:30;font-family:'Barlow Condensed';letter-spacing:.2em;font-size:11px;color:var(--muted);text-transform:uppercase;animation:hintFade 4s ease forwards;pointer-events:none;white-space:nowrap;}
+@keyframes hintFade{0%{opacity:0}18%{opacity:.85}78%{opacity:.85}100%{opacity:0}}
+.content-wrap{position:relative;z-index:10;padding-bottom:150px;}
+.more-btn-globe{position:fixed;bottom:30px;left:16px;z-index:45;background:rgba(7,22,14,.85);border:1px solid rgba(22,194,100,.45);border-radius:12px;width:46px;height:38px;font-size:22px;line-height:1;color:var(--gold-bright);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.45);}
+.more-btn-globe:active{transform:scale(.92);}
 
 .page{max-width:880px;margin:0 auto;padding:20px 16px;}
 .h-sec{font-family:'Bebas Neue';font-size:26px;letter-spacing:.08em;margin:26px 0 12px;
@@ -3769,10 +3765,306 @@ function ShamePage({ game, me, mutate }) {
   );
 }
 
+/* ════════════════ 3D GLOBE NAVIGATION ════════════════ */
+// Six glowing zones on the sphere surface — the globe IS the navigation.
+const GLOBE_ZONES = [
+  { lat: 0.3, lon: 0.0, color: "#ffd633", icon: "🏟️", label: "HOME", tab: "home" },
+  { lat: -0.2, lon: 1.1, color: "#16c264", icon: "✅", label: "PICKS", tab: "picks" },
+  { lat: 0.5, lon: 2.2, color: "#ff4d6d", icon: "⚔️", label: "WAR ROOM", tab: "war" },
+  { lat: -0.4, lon: 3.3, color: "#ffd633", icon: "🏆", label: "TABLE", tab: "board" },
+  { lat: 0.2, lon: 4.4, color: "#33d6e0", icon: "👤", label: "PROFILE", tab: "profile" },
+  { lat: -0.3, lon: 5.5, color: "#ff5fa2", icon: "🎯", label: "STATS", tab: "stats" },
+];
+const GLOBE_TAB_KEYS = new Set(GLOBE_ZONES.map((z) => z.tab));
+// Impressionistic landmasses — fixed sphere coords, drawn only on the visible face.
+const GLOBE_BLOBS = [
+  { lat: 0.45, lon: 0.5, rx: 0.42, ry: 0.30, tone: "rgba(20,110,60,0.55)" },
+  { lat: -0.1, lon: 1.4, rx: 0.34, ry: 0.46, tone: "rgba(14,86,46,0.50)" },
+  { lat: 0.15, lon: 2.6, rx: 0.50, ry: 0.30, tone: "rgba(24,130,70,0.45)" },
+  { lat: -0.5, lon: 3.6, rx: 0.30, ry: 0.26, tone: "rgba(16,96,52,0.50)" },
+  { lat: 0.55, lon: 4.3, rx: 0.30, ry: 0.22, tone: "rgba(20,110,60,0.42)" },
+  { lat: -0.25, lon: 5.0, rx: 0.40, ry: 0.34, tone: "rgba(14,86,46,0.50)" },
+  { lat: 0.0, lon: 5.9, rx: 0.26, ry: 0.40, tone: "rgba(24,130,70,0.42)" },
+];
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+function GlobeNav({ mini, activeTab, onSelect }) {
+  const canvasRef = useRef(null);
+  const stateRef = useRef(null);
+  if (!stateRef.current) {
+    stateRef.current = {
+      rotY: 0, rotX: 0.12, velY: 0.05, velX: 0,
+      dragging: false, lx: 0, ly: 0, moved: 0, ldx: 0, ldy: 0,
+      coasting: false, snapping: false, snapHold: 0,
+      morph: mini ? 1 : 0, morphV: 0,
+      flashTab: null, flashUntil: 0, t: 0, trail: [],
+      cx: 0, cy: 0, R: 1,
+      stars: Array.from({ length: 80 }, () => ({ x: Math.random(), y: Math.random(), o: 0.2 + Math.random() * 0.4, r: Math.random() < 0.2 ? 1.4 : 0.9 })),
+    };
+  }
+  const propsRef = useRef({ mini, activeTab, onSelect });
+  propsRef.current = { mini, activeTab, onSelect };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const s = stateRef.current;
+    const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const TAU = Math.PI * 2;
+    let W = 0, H = 0, dpr = 1;
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    // spherical → screen using the live rotation + sphere geometry on state
+    function proj(lat, lon) {
+      const cl = Math.cos(lat), sl = Math.sin(lat);
+      const x0 = cl * Math.sin(lon + s.rotY);
+      const y0 = sl;
+      const z0 = cl * Math.cos(lon + s.rotY);
+      const cX = Math.cos(s.rotX), sX = Math.sin(s.rotX);
+      const y1 = y0 * cX - z0 * sX;
+      const z1 = y0 * sX + z0 * cX;
+      return { x: s.cx + s.R * x0, y: s.cy - s.R * y1, z: z1 };
+    }
+    function nearestZone() {
+      let best = GLOBE_ZONES[0], bz = -2;
+      for (const z of GLOBE_ZONES) { const p = proj(z.lat, z.lon); if (p.z > bz) { bz = p.z; best = z; } }
+      return best;
+    }
+    function angDiff(a, b) { let d = ((b - a + Math.PI) % TAU) - Math.PI; if (d < -Math.PI) d += TAU; return d; }
+
+    const pt = (e) => ({ x: e.clientX, y: e.clientY });
+    function onDown(e) {
+      if (propsRef.current.mini) return;
+      s.dragging = true; s.moved = 0; s.coasting = false; s.snapping = false;
+      const p = pt(e); s.lx = p.x; s.ly = p.y; s.velY = 0; s.velX = 0;
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    function onMove(e) {
+      if (!s.dragging) return;
+      const p = pt(e); const dx = p.x - s.lx, dy = p.y - s.ly; s.lx = p.x; s.ly = p.y;
+      s.moved += Math.abs(dx) + Math.abs(dy);
+      if (!reduce) {
+        s.rotY += dx * 0.008; s.rotX += dy * 0.004;
+        s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
+        s.ldx = dx * 0.008; s.ldy = dy * 0.004;
+      }
+    }
+    function onUp() {
+      if (!s.dragging) return;
+      s.dragging = false;
+      if (s.moved < 8) {
+        // pick whichever zone is closest to front-centre; the front-most one
+        // (the locked-on target) wins so a tap always enters something sensible
+        let best = null, bd = 1e9;
+        for (const z of GLOBE_ZONES) { const p = proj(z.lat, z.lon); if (p.z <= 0) continue; const d = Math.hypot(p.x - s.cx, p.y - s.cy); if (d < bd) { bd = d; best = z; } }
+        const front = nearestZone(), fp = proj(front.lat, front.lon);
+        const pick = bd < 55 ? best : (fp.z > 0.55 ? front : null);
+        if (pick) {
+          s.flashTab = pick.tab; s.flashUntil = s.t + 14;
+          try { navigator.vibrate && navigator.vibrate(12); } catch (err) {}
+          propsRef.current.onSelect(pick.tab);
+        }
+      } else if (!reduce) { s.velY = s.ldx; s.velX = s.ldy; s.coasting = true; }
+    }
+    canvas.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+
+    let raf = 0, last = performance.now();
+    function frame(now) {
+      raf = requestAnimationFrame(frame);
+      const dt = now - last; last = now;
+      const slow = dt > 20;
+      const isMini = propsRef.current.mini, act = propsRef.current.activeTab;
+      s.t += 1;
+
+      // springy morph between full-screen and mini-corner
+      const target = isMini ? 1 : 0;
+      s.morphV += (target - s.morph) * 0.18; s.morphV *= 0.72; s.morph += s.morphV;
+      if (Math.abs(target - s.morph) < 0.001 && Math.abs(s.morphV) < 0.001) { s.morph = target; s.morphV = 0; }
+      const m = Math.max(0, Math.min(1, s.morph));
+
+      // rotation: drag is live; otherwise auto-rotate / momentum / snap
+      if (!s.dragging) {
+        if (reduce) { s.velY = 0; s.velX = 0; }
+        else if (isMini) { s.rotY += 0.004 + s.velY; s.rotX += s.velX; s.velY *= 0.9; s.velX *= 0.9; }
+        else if (s.snapping) {
+          const tg = nearestZone();
+          const dY = angDiff(s.rotY, -tg.lon), dX = tg.lat - s.rotX;
+          s.rotY += dY * 0.06; s.rotX += dX * 0.06;
+          if (Math.abs(dY) < 0.01 && Math.abs(dX) < 0.01) { s.snapping = false; s.snapHold = s.t + 150; }
+        } else {
+          s.rotY += s.velY; s.rotX += s.velX; s.velY *= 0.93; s.velX *= 0.93;
+          if (Math.abs(s.velY) < 0.0035 && Math.abs(s.velX) < 0.0035) {
+            if (s.coasting) { s.coasting = false; s.snapping = true; }
+            else if (s.t > s.snapHold) s.rotY += 0.003;
+          }
+        }
+        s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
+      }
+
+      // sphere geometry lerped between full and corner
+      const fR = Math.min(W, H) * 0.33, fcx = W / 2, fcy = H * 0.45;
+      const mR = 44, mcx = W - 64, mcy = H - 76;
+      s.R = fR + (mR - fR) * m; s.cx = fcx + (mcx - fcx) * m; s.cy = fcy + (mcy - fcy) * m;
+      const R = s.R, cx = s.cx, cy = s.cy;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // stars behind the sphere (fade out as it shrinks to the corner)
+      const starA = 1 - m;
+      if (starA > 0.02) {
+        ctx.fillStyle = "#fff";
+        for (const st of s.stars) { ctx.globalAlpha = st.o * starA; ctx.fillRect(st.x * W, st.y * H, st.r, st.r); }
+        ctx.globalAlpha = 1;
+      }
+
+      // atmosphere — planet-from-space glow
+      const atmo = ctx.createRadialGradient(cx, cy, R * 0.55, cx, cy, R * 1.5);
+      atmo.addColorStop(0, "rgba(22,194,100,0.15)");
+      atmo.addColorStop(0.55, "rgba(150,220,170,0.05)");
+      atmo.addColorStop(1, "rgba(22,194,100,0)");
+      ctx.fillStyle = atmo; ctx.beginPath(); ctx.arc(cx, cy, R * 1.5, 0, TAU); ctx.fill();
+
+      // sphere body, clipped to a clean disc (keeps the corner mini-globe round)
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.clip();
+      const lit = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.35, R * 0.1, cx, cy, R * 1.15);
+      lit.addColorStop(0, "rgba(30,80,45,0.92)");
+      lit.addColorStop(0.6, "rgba(14,46,28,0.95)");
+      lit.addColorStop(1, "rgba(5,15,8,0.98)");
+      ctx.fillStyle = lit; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+
+      // landmasses
+      for (const b of GLOBE_BLOBS) {
+        const p = proj(b.lat, b.lon);
+        if (p.z <= 0.1) continue;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, p.z) * 0.8;
+        ctx.translate(p.x, p.y); ctx.fillStyle = b.tone;
+        ctx.beginPath(); ctx.ellipse(0, 0, b.rx * R * p.z, b.ry * R * p.z * 0.8, b.lon + s.rotY, 0, TAU); ctx.fill();
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+
+      // lat/lon grid on the visible hemisphere
+      ctx.lineWidth = 1;
+      for (let la = -60; la <= 60; la += 30) {
+        const lat = la * Math.PI / 180; let on = false; ctx.beginPath();
+        for (let lo = 0; lo <= 360; lo += 12) { const p = proj(lat, lo * Math.PI / 180); if (p.z > 0) { if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y); } else on = false; }
+        ctx.strokeStyle = "rgba(22,194,100,0.25)"; ctx.stroke();
+      }
+      for (let lo = 0; lo < 360; lo += 30) {
+        const lon = lo * Math.PI / 180; let on = false; ctx.beginPath();
+        for (let la = -90; la <= 90; la += 9) { const p = proj(la * Math.PI / 180, lon); if (p.z > 0) { if (!on) { ctx.moveTo(p.x, p.y); on = true; } else ctx.lineTo(p.x, p.y); } else on = false; }
+        ctx.strokeStyle = "rgba(22,194,100,0.18)"; ctx.stroke();
+      }
+
+      // dark shading on the bottom-right for depth
+      const sh = ctx.createRadialGradient(cx + R * 0.5, cy + R * 0.55, 0, cx + R * 0.1, cy + R * 0.2, R * 1.45);
+      sh.addColorStop(0, "rgba(0,0,0,0.5)"); sh.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = sh; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      // specular highlight, top-left
+      const spec = ctx.createRadialGradient(cx - R * 0.4, cy - R * 0.45, 0, cx - R * 0.4, cy - R * 0.45, R * 0.6);
+      spec.addColorStop(0, "rgba(255,255,255,0.12)"); spec.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = spec; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      ctx.restore();
+
+      // rim
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU);
+      ctx.strokeStyle = "rgba(22,194,100,0.35)"; ctx.lineWidth = 1.5; ctx.stroke();
+
+      const front = nearestZone();
+      // motion trail of the front zone (skipped on slow frames)
+      if (!slow && m < 0.6) {
+        const fp = proj(front.lat, front.lon);
+        if (fp.z > 0) { s.trail.push({ x: fp.x, y: fp.y, c: front.color }); if (s.trail.length > 8) s.trail.shift(); }
+        for (let i = 0; i < s.trail.length; i++) { const tr = s.trail[i]; ctx.globalAlpha = (i / s.trail.length) * 0.22 * (1 - m); ctx.fillStyle = tr.c; ctx.beginPath(); ctx.arc(tr.x, tr.y, 6 * (i / s.trail.length), 0, TAU); ctx.fill(); }
+        ctx.globalAlpha = 1;
+      }
+      // targeting line to the locked-on zone
+      if (m < 0.5) {
+        const fp = proj(front.lat, front.lon);
+        if (fp.z > 0.2) { ctx.globalAlpha = (1 - m) * 0.3; ctx.strokeStyle = front.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(fp.x, fp.y); ctx.stroke(); ctx.globalAlpha = 1; }
+      }
+
+      // zones
+      const pulse = 0.5 + 0.5 * Math.sin(s.t * 0.09);
+      const zf = 1 - m;
+      if (zf > 0.02) {
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        for (const z of GLOBE_ZONES) {
+          const p = proj(z.lat, z.lon);
+          if (p.z <= 0.02) continue;
+          const depth = 0.55 + 0.45 * p.z;
+          const flashing = s.flashTab === z.tab && s.t < s.flashUntil;
+          ctx.save();
+          ctx.shadowBlur = 20; ctx.shadowColor = z.color;
+          ctx.globalAlpha = zf * (0.5 + 0.5 * p.z);
+          ctx.fillStyle = hexA(z.color, flashing ? 0.5 : 0.25);
+          ctx.beginPath(); ctx.arc(p.x, p.y, 28 * depth * (1 + 0.06 * pulse), 0, TAU); ctx.fill();
+          ctx.fillStyle = hexA(z.color, flashing ? 1 : 0.6);
+          ctx.beginPath(); ctx.arc(p.x, p.y, 16 * depth, 0, TAU); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = zf * Math.min(1, 0.6 + 0.5 * p.z);
+          ctx.font = `${Math.round(18 * depth)}px serif`;
+          ctx.fillText(z.icon, p.x, p.y - 1);
+          ctx.font = `${Math.round(11 * depth)}px 'Bebas Neue', sans-serif`;
+          ctx.fillStyle = "rgba(255,255,255,0.85)";
+          ctx.fillText(z.label, p.x, p.y + 24 * depth);
+          if (z.tab === act) {
+            const rr = (s.t % 60) / 60;
+            ctx.globalAlpha = zf * (1 - rr) * 0.8; ctx.strokeStyle = z.color; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(p.x, p.y, (16 + rr * 30) * depth, 0, TAU); ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      // mini-corner: glow ring in the active zone's colour
+      if (m > 0.05) {
+        const az = GLOBE_ZONES.find((z) => z.tab === act) || GLOBE_ZONES[0];
+        ctx.save();
+        ctx.globalAlpha = m * 0.9; ctx.shadowBlur = 22; ctx.shadowColor = az.color;
+        ctx.strokeStyle = hexA(az.color, 0.65); ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(cx, cy, R + 3, 0, TAU); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    raf = requestAnimationFrame(frame);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      canvas.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className={`globe-canvas${mini ? " is-mini" : ""}`} aria-label="globe navigation" />;
+}
+
 /* ════════════════ APP SHELL ════════════════ */
 export default function App() {
   const [game, setGame] = useState(null);
   const [tab, setTab] = useState("home");
+  const [globeMode, setGlobeMode] = useState(true);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [meId, setMeIdRaw] = useState("");
   const [isAdmin, setIsAdminRaw] = useState(false);
   const [installHint, setInstallHint] = useState(false);
@@ -3855,6 +4147,18 @@ export default function App() {
     setFxStatus({ loading: false, error: res.matches.length === 0 ? "No World Cup fixtures today (or the API doesn't have them yet)." : "" });
   }, [mutate]);
 
+  // Globe → section: set the tab, shrink the globe to its corner, and keep
+  // live data fresh for the pages that show fixtures.
+  const goTab = useCallback((k) => {
+    setTab(k); setGlobeMode(false); setMoreOpen(false);
+    SFX.click(); try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
+    if (k === "home" || k === "picks" || k === "scores" || k === "today" || k === "war") pullFixtures(false);
+  }, [pullFixtures]);
+  const returnToGlobe = useCallback(() => {
+    setGlobeMode(true); setMoreOpen(false);
+    SFX.click(); try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
+  }, []);
+
   // fetch on load and whenever the API key first appears
   useEffect(() => { if (game?.config?.apiKey) pullFixtures(false); }, [game?.config?.apiKey, pullFixtures]);
 
@@ -3923,11 +4227,6 @@ export default function App() {
   const [profileId, setProfileId] = useState(null);
   const [detailMatch, setDetailMatch] = useState(null);
   useEffect(() => { _openMatch = (m) => setDetailMatch(m); return () => { _openMatch = () => {}; }; }, []);
-  const tabsRef = useRef(null);
-  useEffect(() => {
-    const el = tabsRef.current?.querySelector(".tab.on");
-    if (el) el.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-  }, [tab]);
   useEffect(() => { _openProfile = (pid) => setProfileId(pid); return () => { _openProfile = () => {}; }; }, []);
   const [payout, setPayout] = useState(null);
   useEffect(() => {
@@ -3971,7 +4270,7 @@ export default function App() {
     </div>
   );
 
-  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v58</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
+  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>v59</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -4034,51 +4333,83 @@ export default function App() {
         </div>
       )}
       <StadiumBg />
-      <div className="topwrap">
-      <nav className="nav">
-        <div className="nav-headline">
-          <span className="nav-trophy">🏆</span>
-          <span className="hype-title">WC2026 · <span className="grp">{game.config.groupName}</span></span>
-          <span className="nav-trophy" style={{ animationDirection: "reverse" }}>🏆</span>
-        </div>
-        <div className="nav-controls">
-          <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
-            <option value="">Who are you?</option>
-            {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
-          </select>
-          {me && <button className="who bell-btn" title="Enable notifications"
-            onClick={async () => { const r = await enablePush(me.id, me.name); alert(r.msg); }}>🔔</button>}
-          <button className="who sound-btn" title="Toggle sound"
-            onClick={() => { const ns = !soundOn(); try { localStorage.setItem("wc26-sound", ns ? "1" : "0"); } catch (e) {} if (ns) { actx(); SFX.pick(); } setSoundTick((x) => x + 1); }}>{soundOn() ? "🔊" : "🔇"}</button>
-          <span className="pot-badge shine"><span className="coin"><span className="face">$</span><span className="face back">$</span></span>{game.config.currency}<CountUp value={pot} decimals={2} /></span>
-        </div>
-      </nav>
-      <Ticker game={game} />
-      </div>
 
-      <div className="page-anim" key={tab}>
-      {tab === "home" && <HomePage game={game} me={me} go={setTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
-      {tab === "today" && <TodayPage game={game} me={me} go={setTab} />}
-      {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} isAdmin={isAdmin} />}
-      {tab === "profile" && <ProfilePage game={game} me={me} mutate={mutate} />}
-      {tab === "scores" && <LiveScoresPage game={game} onRefresh={() => pullFixtures(true)} />}
-      {tab === "war" && <WarRoom game={game} me={me} mutate={mutate} onRefresh={() => pullFixtures(true)} />}
-      {tab === "stats" && <StatsPage game={game} me={me} mutate={mutate} />}
-      {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
-      {tab === "final8" && <Final8Page game={game} me={me} mutate={mutate} />}
-      {tab === "board" && <LeaderboardPage game={game} meId={meId} />}
-      {tab === "shame" && <ShamePage game={game} me={me} mutate={mutate} />}
-      {tab === "prizes" && <PrizesPage game={game} />}
-      {tab === "admin" && <AdminPage game={game} mutate={mutate} isAdmin={isAdmin} setIsAdmin={setIsAdmin} fireConfetti={fireConfetti} onRefresh={() => pullFixtures(true)} fxStatus={fxStatus} />}
-      </div>
+      <GlobeNav mini={!globeMode} activeTab={tab} onSelect={goTab} />
 
-      <div className="tabs" ref={tabsRef}>
-        {ALL_TABS.map(([k, ic, lab]) => (
-          <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => { setTab(k); SFX.click(); try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} if (k === "home" || k === "picks" || k === "scores" || k === "today" || k === "war") pullFixtures(false); }}>
-            <span className="ic">{ic}</span>{lab}
-          </button>
-        ))}
-      </div>
+      {globeMode ? (
+        <>
+          <div className="globe-title"><span className="hype-title">WC2026</span></div>
+          <div className="globe-player">
+            <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
+              <option value="">Who are you?</option>
+              {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
+            </select>
+          </div>
+          <span className="globe-pip">{game.config.currency}<CountUp value={pot} decimals={2} /></span>
+          <div className="globe-hint">Swipe to explore · tap a zone</div>
+        </>
+      ) : (
+        <>
+          <div className="topwrap">
+          <nav className="nav">
+            <div className="nav-headline">
+              <span className="nav-trophy">🏆</span>
+              <span className="hype-title">WC2026 · <span className="grp">{game.config.groupName}</span></span>
+              <span className="nav-trophy" style={{ animationDirection: "reverse" }}>🏆</span>
+            </div>
+            <div className="nav-controls">
+              <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
+                <option value="">Who are you?</option>
+                {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
+              </select>
+              {me && <button className="who bell-btn" title="Enable notifications"
+                onClick={async () => { const r = await enablePush(me.id, me.name); alert(r.msg); }}>🔔</button>}
+              <button className="who sound-btn" title="Toggle sound"
+                onClick={() => { const ns = !soundOn(); try { localStorage.setItem("wc26-sound", ns ? "1" : "0"); } catch (e) {} if (ns) { actx(); SFX.pick(); } setSoundTick((x) => x + 1); }}>{soundOn() ? "🔊" : "🔇"}</button>
+              <span className="pot-badge shine"><span className="coin"><span className="face">$</span><span className="face back">$</span></span>{game.config.currency}<CountUp value={pot} decimals={2} /></span>
+            </div>
+          </nav>
+          <Ticker game={game} />
+          </div>
+
+          <div className="content-wrap">
+          <div className="page-anim" key={tab}>
+          {tab === "home" && <HomePage game={game} me={me} go={goTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
+          {tab === "today" && <TodayPage game={game} me={me} go={goTab} />}
+          {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} isAdmin={isAdmin} />}
+          {tab === "profile" && <ProfilePage game={game} me={me} mutate={mutate} />}
+          {tab === "scores" && <LiveScoresPage game={game} onRefresh={() => pullFixtures(true)} />}
+          {tab === "war" && <WarRoom game={game} me={me} mutate={mutate} onRefresh={() => pullFixtures(true)} />}
+          {tab === "stats" && <StatsPage game={game} me={me} mutate={mutate} />}
+          {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
+          {tab === "final8" && <Final8Page game={game} me={me} mutate={mutate} />}
+          {tab === "board" && <LeaderboardPage game={game} meId={meId} />}
+          {tab === "shame" && <ShamePage game={game} me={me} mutate={mutate} />}
+          {tab === "prizes" && <PrizesPage game={game} />}
+          {tab === "admin" && <AdminPage game={game} mutate={mutate} isAdmin={isAdmin} setIsAdmin={setIsAdmin} fireConfetti={fireConfetti} onRefresh={() => pullFixtures(true)} fxStatus={fxStatus} />}
+          </div>
+          </div>
+
+          <button className="more-btn-globe" onClick={() => { setMoreOpen(true); SFX.click(); }} aria-label="more sections">⋯</button>
+          <button className="globe-mini-hit" onClick={returnToGlobe} aria-label="back to globe navigation" />
+
+          {moreOpen && (
+            <>
+              <div className="more-bg" onClick={() => setMoreOpen(false)} />
+              <div className="more-sheet">
+                <div className="more-grip" />
+                <div className="more-grid">
+                  {ALL_TABS.filter(([k]) => !GLOBE_TAB_KEYS.has(k)).map(([k, ic, lab]) => (
+                    <button key={k} className={`more-item ${tab === k ? "on" : ""}`} onClick={() => goTab(k)}>
+                      <span className="more-ic">{ic}</span>{lab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
