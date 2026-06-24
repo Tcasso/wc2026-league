@@ -12,7 +12,8 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v71";
+const APP_VERSION = "v72";
+const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
 // Guarded so a bad/missing config shows an on-screen error instead of
@@ -4133,7 +4134,8 @@ export default function App() {
     try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
     if (FX_TABS.has(k)) pullFixtures(false);
   };
-  const visiblePagesFor = (section) => section.pages.filter((p) => (p === "admin" ? isAdmin : true));
+  const isOwner = (me?.name || "").toLowerCase() === OWNER_NAME;
+  const visiblePagesFor = (section) => section.pages.filter((p) => (p === "admin" ? (isAdmin || isOwner) : true));
   const currentSection = SECTIONS.find((s) => s.pages.includes(tab)) || SECTIONS[0];
   const visiblePages = visiblePagesFor(currentSection);
 
