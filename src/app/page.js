@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v68";
+const APP_VERSION = "v69";
 
 // Supabase: keys come from Vercel environment variables.
 // Guarded so a bad/missing config shows an on-screen error instead of
@@ -44,8 +44,16 @@ button,.btn,.who,.date-chip,.pickbtn,.lb-row,.match{transition:transform .16s cu
 button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .wc-app{
   min-height:100vh; color:var(--white); font-family:'Inter',sans-serif;
-  background:#06140c;
+  background:
+    linear-gradient(180deg,
+      rgba(6,20,12,0.88) 0%,
+      rgba(6,20,12,0.84) 50%,
+      rgba(6,20,12,0.94) 100%),
+    url('/stadium-bg.jpg') center center / cover fixed no-repeat;
   padding-bottom:90px;
+}
+@media (max-width: 768px){
+  .wc-app{ background-attachment: scroll; }
 }
 .bebas{font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;}
 .barlow{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;}
@@ -146,7 +154,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .hero .pot .amt{font-family:'Bebas Neue';font-size:34px;color:var(--gold-bright);}
 
 /* cards & panels */
-.panel{background:linear-gradient(160deg,rgba(18,58,35,.65),rgba(9,26,16,.75));backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
+.panel{background:linear-gradient(160deg,rgba(18,58,35,.88),rgba(9,26,16,.93)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
 @property --hue{syntax:'<angle>';initial-value:0deg;inherits:false;}
 @keyframes hueRotate{to{--hue:360deg}}
 .panel:hover{border-color:hsl(var(--hue),55%,65%);animation:hueRotate 8s linear;}
@@ -162,7 +170,7 @@ input,select{background:#0a1810;color:var(--white);border:1px solid rgba(138,170
 input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline-offset:1px;}
 
 /* match scoreboard card */
-.match{background:linear-gradient(180deg,rgba(16,52,31,.85),rgba(9,26,16,.88));backdrop-filter:blur(6px);border:1px solid rgba(22,194,100,.24);
+.match{background:linear-gradient(180deg,rgba(16,52,31,.92),rgba(9,26,16,.95)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(6px);border:1px solid rgba(22,194,100,.24);
   border-radius:14px;padding:14px;margin-bottom:14px;position:relative;}
 .match .meta{display:flex;justify-content:space-between;align-items:center;font-family:'Barlow Condensed';
   font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
@@ -270,7 +278,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .motd-score{flex:0 0 auto;padding:0 6px;}
 .motd-split{text-align:center;font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.03em;}
 .motd-cta{text-align:center;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.1em;color:var(--gold-bright);margin-top:8px;text-transform:uppercase;}
-.warcard{background:linear-gradient(160deg,rgba(40,16,18,.9),rgba(18,9,10,.92));border:1px solid rgba(230,57,70,.4);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.warcard{background:linear-gradient(160deg,rgba(40,16,18,.95),rgba(18,9,10,.97)),url('/crowd-wc.jpg') center top / cover;border:1px solid rgba(230,57,70,.4);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
 .war-live{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.14em;color:#ff6b78;margin-bottom:8px;}
 .war-score{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;}
 .war-team{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-family:'Bebas Neue';font-size:15px;text-align:center;line-height:1;}
@@ -362,7 +370,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 @keyframes trophySway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
 .calledit{margin-top:10px;text-align:center;font-family:'Bebas Neue';letter-spacing:.1em;font-size:19px;color:var(--gold-bright);animation:calledIn .6s cubic-bezier(.2,1.4,.4,1), goldPulse 2s ease-in-out infinite;}
 @keyframes calledIn{0%{transform:translateY(10px) scale(.8);opacity:0}100%{transform:none;opacity:1}}
-.payout{position:fixed;inset:0;z-index:300;background:rgba(5,8,6,.93);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
+.payout{position:fixed;inset:0;z-index:300;background:linear-gradient(180deg,rgba(5,8,6,.92),rgba(5,8,6,.96)),url('/stadium-celebration.jpg') center / cover fixed;backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
 @keyframes payIn{from{opacity:0}to{opacity:1}}
 .payout-card{text-align:center;padding:32px 40px;animation:cardPop .5s cubic-bezier(.2,1.5,.4,1);}
 @keyframes cardPop{0%{transform:scale(.65);opacity:0}100%{transform:scale(1);opacity:1}}
@@ -549,6 +557,35 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .page-dots{position:fixed;bottom:calc(64px + env(safe-area-inset-bottom) + 10px);left:50%;transform:translateX(-50%);display:flex;gap:6px;align-items:center;z-index:49;pointer-events:auto;}
 .page-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.25);cursor:pointer;transition:all 0.2s ease;}
 .page-dot.active{width:18px;border-radius:3px;background:var(--dot-colour);box-shadow:0 0 8px var(--dot-colour);}
+/* hero ghost trophy */
+.hero-trophy-img{position:absolute;right:-10px;bottom:0;height:90%;width:auto;object-fit:contain;opacity:0.10;pointer-events:none;
+  mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);-webkit-mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);}
+/* ── pitch-style match cards (Picks page) ── */
+.match-card-pitch{position:relative;border-radius:14px;overflow:hidden;margin-bottom:12px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 20px rgba(0,0,0,0.4);min-height:130px;}
+.pitch-bg{position:absolute;inset:0;display:flex;}
+.pitch-zone{flex:1;opacity:0.18;}
+.pitch-zone-a{background:var(--team-colour, #16c264);}
+.pitch-zone-b{background:var(--team-colour, #e63946);}
+.pitch-centre-line{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.25);transform:translateX(-50%);}
+.pitch-centre-circle{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:transparent;}
+.pitch-bg::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent,transparent 28px,rgba(0,0,0,0.06) 28px,rgba(0,0,0,0.06) 56px);}
+.pitch-meta{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:.14em;color:var(--muted);padding:10px 12px 0;}
+.pitch-content{position:relative;z-index:1;display:flex;align-items:center;padding:14px 10px;gap:8px;}
+.pitch-team{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;}
+.pitch-team-name{font-family:'Bebas Neue';font-size:13px;letter-spacing:.04em;line-height:1;color:var(--white);}
+.pitch-pick-btn{padding:5px 12px;border-radius:999px;border:1.5px solid var(--pick-colour, #16c264);background:transparent;color:var(--pick-colour, #16c264);font-family:'Bebas Neue';font-size:13px;letter-spacing:.05em;cursor:pointer;transition:all 0.18s ease;white-space:nowrap;}
+.pitch-pick-btn.selected{background:var(--pick-colour, #16c264);color:#06140c;box-shadow:0 0 12px color-mix(in srgb, var(--pick-colour) 50%, transparent);}
+.pitch-pick-btn:disabled{opacity:0.45;cursor:not-allowed;}
+.pitch-centre{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:64px;}
+.pitch-score{font-size:28px;color:var(--gold-bright);line-height:1;text-shadow:0 0 12px rgba(240,201,58,0.5);}
+.pitch-time{font-family:'Barlow Condensed';font-size:12px;letter-spacing:.1em;color:var(--muted);}
+.pitch-draw-btn{padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:var(--white);font-family:'Bebas Neue';font-size:11px;letter-spacing:.05em;cursor:pointer;transition:all 0.18s ease;}
+.pitch-draw-btn.selected{background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.6);}
+.pitch-draw-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.pitch-lock{font-size:10px;color:var(--muted);letter-spacing:.1em;}
+.pitch-extra{position:relative;z-index:1;padding:0 12px;}
+.pitch-extra:empty{display:none;}
+.pitch-calledit{text-align:center;padding:6px;margin:0 -12px;background:rgba(240,201,58,0.12);border-top:1px solid rgba(240,201,58,0.3);font-family:'Bebas Neue';font-size:14px;color:var(--gold-bright);letter-spacing:.08em;}
 `;
 
 /* ── scoring tables ─────────────────────────────────────────── */
@@ -2348,6 +2385,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
       )}
       <div className="hero hero-grand">
         <div className="hero-glow" aria-hidden />
+        <img src="/trophy-hero.jpg" className="hero-trophy-img" alt="" aria-hidden />
         <div className="hero-kicker barlow">⚽ The Road to Glory ⚽</div>
         <h1 className="hero-mega">WORLD CUP<span>2026</span></h1>
         <div className="sub">{game.config.groupName} · Private Prediction League</div>
@@ -2616,34 +2654,67 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
         const res = matchResult(m);
         const ko = new Date(m.kickoff).getTime();
         const isLive = m.status !== "finished" && m.status !== "void" && (m.live || (now >= ko && now < ko + 2.2 * 3600000));
-        const btnCls = (key) => {
-          let c = "pickbtn";
-          if (myPick?.pred === key) c += " sel";
-          if (m.status === "finished" && myPick?.pred === key) c += res === key ? " win" : " lose";
-          return c;
-        };
+        const teamColourA = (COUNTRY_COLORS[a?.name] || ["#16c264"])[0];
+        const teamColourB = (COUNTRY_COLORS[b?.name] || ["#e63946"])[0];
+        const showScore = locked || m.status === "finished";
         return (
-          <div className="match" key={m.id}>
-            <div className="meta">
+          <div className="match-card-pitch" key={m.id}>
+            <div className="pitch-meta barlow">
               <span>{stageTag(m, tById)}</span>
               {m.status === "void" ? <span style={{ color: "var(--danger)" }}>VOID — picks refunded</span>
                 : isLive ? <span className="live"><span className="dot" />LIVE</span>
                 : m.status === "finished" ? <span>FULL TIME</span> : <span>{fmtTime(m.kickoff)}</span>}
             </div>
-            <div className="face">
-              <div className="team"><span className="fl"><Flag name={a?.name} size={22} /></span><span className="nm">{a?.name}</span></div>
-              {(m.status === "finished" || (isLive && m.scoreA != null && m.scoreB != null)) ? <div className="score" key={`sc${m.scoreA}-${m.scoreB}`}>{m.scoreA} – {m.scoreB}</div> : <div className="vs">VS</div>}
-              <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
+            <div className="pitch-bg">
+              <div className="pitch-zone pitch-zone-a" style={{ "--team-colour": teamColourA }} />
+              <div className="pitch-centre-line" />
+              <div className="pitch-centre-circle" />
+              <div className="pitch-zone pitch-zone-b" style={{ "--team-colour": teamColourB }} />
             </div>
-            <div className="pickrow">
-              <button className={btnCls("A")} disabled={locked || !me} onClick={() => setPick(m, { pred: "A" })}>{a?.name} win</button>
-              <button className={btnCls("D")} disabled={locked || !me} onClick={() => setPick(m, { pred: "D" })}>Draw</button>
-              <button className={btnCls("B")} disabled={locked || !me} onClick={() => setPick(m, { pred: "B" })}>{b?.name} win</button>
+            <div className="pitch-content">
+              <div className="pitch-team pitch-team-a">
+                <Flag name={a?.name} size={28} />
+                <span className="pitch-team-name">{a?.name}</span>
+                <button
+                  className={`pitch-pick-btn ${myPick?.pred === "A" ? "selected" : ""}`}
+                  disabled={locked || !me}
+                  onClick={() => setPick(m, { pred: "A" })}
+                  style={{ "--pick-colour": teamColourA }}
+                >
+                  {myPick?.pred === "A" ? "✓ BACKED" : "BACK"}
+                </button>
+              </div>
+              <div className="pitch-centre">
+                {showScore
+                  ? <div className="pitch-score bebas">{m.scoreA ?? "–"} : {m.scoreB ?? "–"}</div>
+                  : <div className="pitch-time barlow">{fmtTime(m.kickoff)}</div>}
+                <button
+                  className={`pitch-draw-btn ${myPick?.pred === "D" ? "selected" : ""}`}
+                  disabled={locked || !me}
+                  onClick={() => setPick(m, { pred: "D" })}
+                >
+                  DRAW
+                </button>
+                {locked && <div className="pitch-lock barlow">🔒 LOCKED</div>}
+              </div>
+              <div className="pitch-team pitch-team-b">
+                <Flag name={b?.name} size={28} />
+                <span className="pitch-team-name">{b?.name}</span>
+                <button
+                  className={`pitch-pick-btn ${myPick?.pred === "B" ? "selected" : ""}`}
+                  disabled={locked || !me}
+                  onClick={() => setPick(m, { pred: "B" })}
+                  style={{ "--pick-colour": teamColourB }}
+                >
+                  {myPick?.pred === "B" ? "✓ BACKED" : "BACK"}
+                </button>
+              </div>
             </div>
+            <div className="pitch-extra">
             {myOverride && baseLocked && <div className="lockline" style={{ color: "var(--gold-bright)" }}>🔓 Admin unlocked this for you — pick now</div>}
             {!locked && m.status !== "void" && !myOverride && <div className="lockline"><Countdown to={new Date(lockAt).toISOString()} /></div>}
             {m.status === "finished" && myPick && myPick.pred === res && (
-              <div className="calledit">✓ CALLED IT · +{pickPoints(m, myPick)} PTS</div>
+              <div className="pitch-calledit">✓ CALLED IT · +{pickPoints(m, myPick)} PTS</div>
             )}
             {locked && m.status !== "void" && (() => {
               const sp = pickSplit(game, m);
@@ -2673,6 +2744,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
                 })}
               </div>
             )}
+            </div>
           </div>
         );
       })}
