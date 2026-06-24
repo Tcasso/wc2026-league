@@ -4,8 +4,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
-const APP_VERSION = "v66";
-
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
    Daily picks · Underdog system · Final 8 draft · Live pot
@@ -14,6 +12,7 @@ const APP_VERSION = "v66";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
+const APP_VERSION = "v67";
 
 // Supabase: keys come from Vercel environment variables.
 // Guarded so a bad/missing config shows an on-screen error instead of
@@ -41,16 +40,13 @@ const CSS = `
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
-button,.tab,.btn,.who,.date-chip,.pickbtn,.lb-row,.match{transition:transform .16s cubic-bezier(.2,.8,.3,1), background .2s ease, box-shadow .2s ease, border-color .2s ease;}
+button,.btn,.who,.date-chip,.pickbtn,.lb-row,.match{transition:transform .16s cubic-bezier(.2,.8,.3,1), background .2s ease, box-shadow .2s ease, border-color .2s ease;}
 button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .wc-app{
   min-height:100vh; color:var(--white); font-family:'Inter',sans-serif;
-  background:
-    linear-gradient(180deg, rgba(6,20,12,0.88) 0%, rgba(6,20,12,0.84) 50%, rgba(6,20,12,0.94) 100%),
-    url('/stadium-bg.jpg') center center / cover fixed no-repeat;
-  padding-bottom:0;
+  background:#06140c;
+  padding-bottom:90px;
 }
-@media (max-width: 768px){ .wc-app{ background-attachment: scroll; } }
 .bebas{font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;}
 .barlow{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;}
 .muted{color:var(--muted);}
@@ -88,131 +84,32 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .coin .back{transform:rotateY(180deg);}
 @keyframes coinSpin{0%{transform:rotateY(0)}100%{transform:rotateY(360deg)}}
 
-/* 3D globe navigation — the globe IS the nav */
-.globe-canvas{position:fixed;inset:0;width:100vw;height:100vh;touch-action:none;cursor:grab;z-index:20;}
-.globe-canvas:active{cursor:grabbing;}
-.globe-canvas.is-mini{pointer-events:none;z-index:57;cursor:default;}
-.globe-mini-hit{position:fixed;bottom:14px;right:6px;width:120px;height:120px;border-radius:50%;background:none;border:none;z-index:58;cursor:pointer;}
-.globe-mini-hit:active{transform:scale(.94);}
-.globe-title{position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;text-align:center;padding:14px 12px;font-family:'Bebas Neue';font-size:28px;z-index:30;pointer-events:none;}
-.globe-title .hype-title{flex:none;display:inline-block;font-size:28px;}
-.globe-player{position:fixed;top:calc(env(safe-area-inset-top,0) + 12px);right:12px;z-index:35;max-width:48vw;}
-.globe-player .who{font-size:13px;padding:7px 11px;border-color:rgba(240,201,58,.5);background:rgba(7,22,14,.88);border-radius:999px;}
-.globe-pip{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(7,22,14,.85);border:1px solid var(--gold);border-radius:999px;padding:6px 18px;font-family:'Bebas Neue';font-size:20px;letter-spacing:.04em;color:var(--gold-bright);display:flex;align-items:center;gap:3px;box-shadow:0 0 24px rgba(240,201,58,.25);}
-.globe-hint{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);z-index:30;font-family:'Barlow Condensed';letter-spacing:.2em;font-size:11px;color:var(--muted);text-transform:uppercase;animation:hintFade 4s ease forwards;pointer-events:none;white-space:nowrap;}
-@keyframes hintFade{0%{opacity:0}18%{opacity:.85}78%{opacity:.85}100%{opacity:0}}
-.content-wrap{position:relative;z-index:10;padding-bottom:150px;}
-.more-btn-globe{position:fixed;bottom:30px;left:16px;z-index:45;background:rgba(7,22,14,.85);border:1px solid rgba(22,194,100,.45);border-radius:12px;width:46px;height:38px;font-size:22px;line-height:1;color:var(--gold-bright);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.45);}
-.more-btn-globe:active{transform:scale(.92);}
-/* globe sphere — a real photo of Earth from space wrapped onto a CSS 3D sphere illusion */
-.globe-sphere{position:fixed;left:50%;top:45%;
-  transform:translate(-50%,-50%);
-  width:var(--globe-size,280px);height:var(--globe-size,280px);
-  border-radius:50%;
-  background-image:url('/earth-globe.jpg');
-  background-size:200% 100%;
-  background-position:0% center;
-  box-shadow:
-    inset -30px -20px 80px rgba(0,0,0,0.85),
-    inset 8px 8px 30px rgba(255,255,255,0.06),
-    0 0 50px rgba(22,194,100,0.2),
-    0 0 100px rgba(22,194,100,0.08),
-    0 20px 60px rgba(0,0,0,0.6);
-  animation:globeSpin 31.25s linear infinite;
-  overflow:hidden;pointer-events:none;}
-@keyframes globeSpin{
-  0%   { background-position: 0% center; }
-  100% { background-position: 200% center; }
-}
-.globe-sphere::before{content:'';position:absolute;inset:0;border-radius:50%;
-  background:radial-gradient(circle at 32% 28%,
-    rgba(255,255,255,0.13) 0%,
-    rgba(255,255,255,0.04) 25%,
-    transparent 55%,
-    rgba(0,0,0,0.5) 100%);
-  pointer-events:none;}
-.globe-sphere::after{content:'';position:absolute;inset:0;border-radius:50%;
-  background:radial-gradient(circle at 50% 50%,
-    transparent 55%,
-    rgba(0,0,0,0.7) 80%,
-    rgba(0,0,0,0.92) 100%);
-  pointer-events:none;}
-/* mini corner globe — the full-globe inset shadow uses fixed px sized for a
-   280px sphere; on the ~88px corner globe it swamps the Earth. Scale it down
-   so the spinning Earth fills the circle cleanly with no black edges. */
-.globe-sphere.is-mini{
-  box-shadow:
-    inset -5px -4px 12px rgba(0,0,0,0.55),
-    inset 3px 3px 10px rgba(255,255,255,0.06),
-    0 0 0 1.5px rgba(240,201,58,0.7),
-    0 0 16px rgba(240,201,58,0.35),
-    0 0 32px rgba(22,194,100,0.2),
-    0 4px 16px rgba(0,0,0,0.6);
-  transition:transform .18s cubic-bezier(.2,1.5,.4,1), box-shadow .2s ease;}
-/* the base sphere's edge vignette is sized for a 280px globe and swamps the
-   ~88px corner globe with a thick black ring — push it out to the rim so the
-   Earth image fills the mini circle cleanly with only a subtle edge fade. */
-.globe-sphere.is-mini::before{
-  background:radial-gradient(circle at 34% 30%,
-    rgba(255,255,255,0.15) 0%,
-    rgba(255,255,255,0.04) 30%,
-    transparent 62%);}
-.globe-sphere.is-mini::after{
-  background:radial-gradient(circle at 50% 50%,
-    transparent 72%,
-    rgba(0,0,0,0.3) 92%,
-    rgba(0,0,0,0.55) 100%);}
-/* the soft halo swamps the tiny corner globe and overflows the gold ring —
-   the ring + glow are handled by the sphere's box-shadow, so drop it here. */
-.globe-atmosphere.is-mini{display:none;}
-/* press the corner globe → it dips in; on devices with a real pointer it
-   lifts and the gold ring brightens. transform composes with the sphere's
-   own translate centring (JS only sets left/top, never transform). */
-.wc-app:has(.globe-mini-hit:active) .globe-sphere.is-mini{
-  transform:translate(-50%,-50%) scale(.92);}
-@media (hover:hover){
-  .wc-app:has(.globe-mini-hit:hover) .globe-sphere.is-mini{
-    transform:translate(-50%,-50%) scale(1.06);
-    box-shadow:
-      inset -5px -4px 12px rgba(0,0,0,0.55),
-      inset 3px 3px 10px rgba(255,255,255,0.06),
-      0 0 0 1.5px rgba(240,201,58,0.9),
-      0 0 24px rgba(240,201,58,0.5),
-      0 0 48px rgba(22,194,100,0.3),
-      0 4px 20px rgba(0,0,0,0.7);}
-}
-.globe-mini-label{position:fixed;bottom:10px;right:0;width:128px;text-align:center;
-  z-index:65;pointer-events:none;font-family:'Barlow Condensed';font-size:9px;
-  letter-spacing:.15em;text-transform:uppercase;color:rgba(240,201,58,0.6);}
-.globe-atmosphere{position:fixed;left:50%;top:45%;
-  transform:translate(-50%,-50%);
-  width:calc(var(--globe-size,280px) * 1.22);
-  height:calc(var(--globe-size,280px) * 1.22);
-  border-radius:50%;
-  background:radial-gradient(circle,
-    transparent 44%,
-    rgba(100,180,255,0.06) 50%,
-    rgba(22,194,100,0.05) 58%,
-    transparent 68%);
-  pointer-events:none;
-  animation:atmospherePulse 4s ease-in-out infinite;}
-@keyframes atmospherePulse{
-  0%,100% { opacity: 0.8; }
-  50% { opacity: 1; }
-}
-.globe-zone-hint{position:absolute;
-  bottom:calc(var(--globe-size,280px) / 2 + 20px);
-  left:50%;transform:translateX(-50%);
-  font-family:'Bebas Neue';font-size:18px;
-  letter-spacing:.1em;color:var(--gold-bright);
-  text-shadow:0 0 12px rgba(240,201,58,0.6);
-  pointer-events:none;
-  animation:hintAppear .2s ease;
-  white-space:nowrap;z-index:30;}
-@keyframes hintAppear{ from { opacity: 0; transform: translateX(-50%) translateY(4px); } }
+/* bottom nav — primary section dock */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:calc(64px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);display:flex;
+  background:rgba(6,20,12,0.97);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);
+  border-top:1px solid rgba(255,255,255,0.08);
+  box-shadow:0 -1px 0 rgba(255,255,255,0.05) inset, 0 -8px 24px rgba(0,0,0,0.4);z-index:50;}
+.bottom-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:none;padding:8px 4px;position:relative;transition:opacity 0.15s ease;}
+.bottom-nav-tab .tab-icon{font-size:22px;line-height:1;transition:transform 0.2s cubic-bezier(0.2,1.5,0.4,1);}
+.bottom-nav-tab .tab-label{font-family:'Barlow Condensed';font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color 0.15s ease;}
+.bottom-nav-tab.active .tab-icon{transform:translateY(-2px) scale(1.1);}
+.bottom-nav-tab.active .tab-label{color:var(--section-colour);font-weight:700;}
+.bottom-nav-tab:active{opacity:.7;}
+.bottom-nav-tab:focus-visible{outline:2px solid var(--sky);outline-offset:-2px;}
+.bottom-nav-tab.active::before{content:'';position:absolute;top:6px;left:50%;transform:translateX(-50%);width:20px;height:3px;border-radius:0 0 3px 3px;background:var(--section-colour);box-shadow:0 0 8px var(--section-colour);}
 
-.page{max-width:880px;margin:0 auto;padding:20px 16px;}
-.picks-page{touch-action:pan-y;}
+/* sub-nav — secondary page pills within a section */
+.sub-nav{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:8px 12px;
+  background:rgba(6,20,12,0.6);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,0.06);scrollbar-width:none;}
+.sub-nav::-webkit-scrollbar{display:none;}
+.sub-nav-pill{flex:0 0 auto;scroll-snap-align:start;padding:5px 14px;border-radius:999px;font-family:'Barlow Condensed';font-size:13px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.12);background:transparent;color:var(--muted);white-space:nowrap;transition:all 0.18s ease;}
+.sub-nav-pill.active{background:var(--section-colour);border-color:var(--section-colour);color:#06140c;font-weight:700;box-shadow:0 0 12px color-mix(in srgb, var(--section-colour) 40%, transparent);}
+.sub-nav-pill:active{transform:scale(.94);}
+.sub-nav-pill:focus-visible{outline:2px solid var(--sky);}
+
+.page{max-width:880px;margin:0 auto;padding:20px 16px calc(64px + env(safe-area-inset-bottom) + 16px);}
+.ver-badge{position:fixed;bottom:calc(64px + env(safe-area-inset-bottom) + 6px);right:10px;font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;z-index:49;pointer-events:none;}
 .h-sec{font-family:'Bebas Neue';font-size:26px;letter-spacing:.08em;margin:26px 0 12px;
   display:flex;align-items:center;gap:10px;
   text-shadow:1px 1px 0 rgba(0,0,0,.6),2px 2px 0 rgba(0,0,0,.4),3px 3px 0 rgba(0,0,0,.2),0 0 20px rgba(240,201,58,.3);}
@@ -232,7 +129,6 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
   repeating-linear-gradient(115deg, var(--pitch-green) 0 70px, var(--pitch-light) 70px 140px);
   border:1px solid rgba(201,168,76,.45);box-shadow:inset 0 0 60px rgba(0,0,0,.5),0 8px 30px rgba(0,0,0,.4);}
 .hero-glow{position:absolute;inset:0;background:radial-gradient(circle at 50% 10%, rgba(240,201,58,.3), transparent 55%);animation:auraPulse 3s ease-in-out infinite;pointer-events:none;}
-.hero-trophy-img{position:absolute;right:-10px;bottom:0;height:90%;width:auto;object-fit:contain;opacity:.10;pointer-events:none;mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);-webkit-mask-image:linear-gradient(to left, rgba(0,0,0,0.6), transparent);}
 .hero-kicker{position:relative;color:var(--gold-bright);font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:6px;opacity:.9;}
 .hero-mega{position:relative;font-family:'Bebas Neue';font-size:clamp(44px,12vw,92px);line-height:.86;letter-spacing:.02em;
   background:linear-gradient(100deg,#fff 20%,var(--gold-bright) 45%,#fff 70%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -250,7 +146,7 @@ button:active,.btn:active,.pickbtn:active{transform:scale(.96);}
 .hero .pot .amt{font-family:'Bebas Neue';font-size:34px;color:var(--gold-bright);}
 
 /* cards & panels */
-.panel{background:linear-gradient(160deg,rgba(18,58,35,.88),rgba(9,26,16,.93)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
+.panel{background:linear-gradient(160deg,rgba(18,58,35,.65),rgba(9,26,16,.75));backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);}
 @property --hue{syntax:'<angle>';initial-value:0deg;inherits:false;}
 @keyframes hueRotate{to{--hue:360deg}}
 .panel:hover{border-color:hsl(var(--hue),55%,65%);animation:hueRotate 8s linear;}
@@ -266,7 +162,7 @@ input,select{background:#0a1810;color:var(--white);border:1px solid rgba(138,170
 input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline-offset:1px;}
 
 /* match scoreboard card */
-.match{background:linear-gradient(180deg,rgba(16,52,31,.92),rgba(9,26,16,.95)),url('/grass-texture.jpg') center / cover;backdrop-filter:blur(6px);border:1px solid rgba(22,194,100,.24);
+.match{background:linear-gradient(180deg,rgba(16,52,31,.85),rgba(9,26,16,.88));backdrop-filter:blur(6px);border:1px solid rgba(22,194,100,.24);
   border-radius:14px;padding:14px;margin-bottom:14px;position:relative;}
 .match .meta{display:flex;justify-content:space-between;align-items:center;font-family:'Barlow Condensed';
   font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
@@ -374,7 +270,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .motd-score{flex:0 0 auto;padding:0 6px;}
 .motd-split{text-align:center;font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.03em;}
 .motd-cta{text-align:center;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.1em;color:var(--gold-bright);margin-top:8px;text-transform:uppercase;}
-.warcard{background:linear-gradient(160deg,rgba(40,16,18,.95),rgba(18,9,10,.97)),url('/crowd-wc.jpg') center top / cover;border:1px solid rgba(230,57,70,.4);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.warcard{background:linear-gradient(160deg,rgba(40,16,18,.9),rgba(18,9,10,.92));border:1px solid rgba(230,57,70,.4);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
 .war-live{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.14em;color:#ff6b78;margin-bottom:8px;}
 .war-score{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;}
 .war-team{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-family:'Bebas Neue';font-size:15px;text-align:center;line-height:1;}
@@ -462,13 +358,11 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 @keyframes liveGlow{0%,100%{box-shadow:0 0 0 rgba(230,57,70,0)}50%{box-shadow:0 0 28px rgba(230,57,70,.5)}}
 .lb-row{animation:rowIn .45s ease both;}
 @keyframes rowIn{0%{opacity:0;transform:translateX(-14px)}100%{opacity:1;transform:translateX(0)}}
-.tab.on .ic{display:inline-block;animation:icBounce .5s ease;}
-@keyframes icBounce{0%{transform:translateY(0)}40%{transform:translateY(-6px)}70%{transform:translateY(2px)}100%{transform:translateY(0)}}
 .nav-trophy{display:inline-block;animation:trophySway 3.5s ease-in-out infinite;}
 @keyframes trophySway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
 .calledit{margin-top:10px;text-align:center;font-family:'Bebas Neue';letter-spacing:.1em;font-size:19px;color:var(--gold-bright);animation:calledIn .6s cubic-bezier(.2,1.4,.4,1), goldPulse 2s ease-in-out infinite;}
 @keyframes calledIn{0%{transform:translateY(10px) scale(.8);opacity:0}100%{transform:none;opacity:1}}
-.payout{position:fixed;inset:0;z-index:300;background:linear-gradient(180deg,rgba(5,8,6,.92),rgba(5,8,6,.96)),url('/stadium-celebration.jpg') center / cover fixed;backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
+.payout{position:fixed;inset:0;z-index:300;background:rgba(5,8,6,.93);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:payIn .25s ease;cursor:pointer;}
 @keyframes payIn{from{opacity:0}to{opacity:1}}
 .payout-card{text-align:center;padding:32px 40px;animation:cardPop .5s cubic-bezier(.2,1.5,.4,1);}
 @keyframes cardPop{0%{transform:scale(.65);opacity:0}100%{transform:scale(1);opacity:1}}
@@ -523,14 +417,6 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .shame-comment b{color:var(--gold-bright);}
 .comment-box{display:flex;gap:6px;margin-top:8px;}
 .comment-box input{flex:1;}
-.more-bg{position:fixed;inset:0;z-index:60;background:rgba(5,6,7,.6);backdrop-filter:blur(3px);animation:payIn .2s ease;}
-.more-sheet{position:fixed;bottom:0;left:0;right:0;z-index:61;background:linear-gradient(180deg,#141417,#0c0c0e);border-top:1px solid rgba(201,168,76,.35);border-radius:18px 18px 0 0;padding:10px 16px calc(18px + env(safe-area-inset-bottom));animation:sheetUp .28s cubic-bezier(.2,1.3,.4,1);}
-@keyframes sheetUp{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
-.more-grip{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.25);margin:2px auto 12px;}
-.more-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:#0e0e11;border:1px solid #232326;border-radius:12px;color:var(--muted);font-family:'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;font-size:13px;cursor:pointer;}
-.more-item.on{border-color:var(--gold);color:var(--gold-bright);}
-.more-ic{font-size:24px;}
 .md-section{font-family:'Barlow Condensed';letter-spacing:.14em;text-transform:uppercase;font-size:12px;color:var(--muted);margin:16px 0 8px;}
 .md-formation{display:flex;justify-content:space-between;font-family:'Bebas Neue';font-size:20px;color:var(--gold-bright);padding:0 4px;}
 .lineup-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -556,8 +442,6 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .dc-mon{font-family:'Barlow Condensed';font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;}
 .dc-cnt{position:absolute;top:-5px;right:-3px;background:var(--pitch-light);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
 .date-chip.on .dc-cnt{background:var(--gold-bright);color:#1a1405;}
-.tab-more{position:relative;}
-.tab-more .more-glow{position:absolute;top:2px;right:14px;width:6px;height:6px;border-radius:50%;background:var(--gold-bright);box-shadow:0 0 8px var(--gold-bright);}
 @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
 /* group stage wind-down */
 .rtk-panel{background:linear-gradient(180deg,rgba(13,50,28,.88),rgba(9,26,18,.9));border:1px solid rgba(22,194,100,.35);border-radius:16px;padding:14px 16px;margin-top:16px;margin-bottom:4px;}
@@ -643,23 +527,6 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .emoji-opt{font-size:24px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid transparent;cursor:pointer;background:#0a1810;transition:border-color .12s,background .12s;}
 .emoji-opt.on{border-color:var(--gold-bright);background:rgba(240,201,58,.15);}
 .emoji-opt:hover{border-color:rgba(201,168,76,.5);}
-/* welcome / loading screen */
-.welcome-screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(6,20,12,0.88),rgba(6,20,12,0.88)),url('/stadium-bg.jpg') center center / cover no-repeat;z-index:200;gap:0;overflow:hidden;}
-.welcome-stack{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;}
-.welcome-bottom{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;}
-.welcome-trophy-img{width:160px;object-fit:contain;border-radius:12px;animation:trophyWelcome 2.4s ease-in-out infinite;filter:drop-shadow(0 0 40px rgba(240,201,58,0.6));}
-@keyframes trophyWelcome{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-.welcome-title{font-family:'Bebas Neue';font-size:clamp(36px,9vw,64px);letter-spacing:.04em;line-height:1;margin-top:6px;
-  background:linear-gradient(100deg,#fff 20%,var(--gold-bright) 45%,#fff 70%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
-  animation:titleSheen 4s linear infinite;text-shadow:0 6px 30px rgba(0,0,0,.5);}
-.welcome-tagline{font-family:'Barlow Condensed';letter-spacing:.3em;font-size:13px;color:var(--muted);text-transform:uppercase;margin-top:8px;}
-.welcome-flags{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:14px;animation:flagPulse 3s ease-in-out infinite;}
-@keyframes flagPulse{0%,100%{opacity:1}50%{opacity:0.4}}
-.welcome-bar-track{width:200px;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;margin-top:28px;overflow:hidden;position:relative;}
-.welcome-bar-fill{position:absolute;top:0;height:100%;width:80px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--gold-bright),transparent);animation:barSweep 1.8s linear infinite;}
-@keyframes barSweep{0%{left:-80px}100%{left:200px}}
-.welcome-msg{font-family:'Barlow Condensed';font-size:12px;letter-spacing:.15em;color:var(--muted);margin-top:10px;text-transform:uppercase;height:16px;}
-.ver-badge{position:fixed;bottom:8px;right:10px;font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;z-index:999;pointer-events:none;}
 `;
 
 /* ── scoring tables ─────────────────────────────────────────── */
@@ -929,10 +796,8 @@ const MASCOT_CSS = `
 .mascot-opt{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;background:#0e0e11;border:1px solid #232326;border-radius:10px;color:var(--muted);cursor:pointer;font-size:10px;font-family:'Barlow Condensed';text-transform:uppercase;letter-spacing:.05em;min-height:64px;justify-content:center;}
 .mascot-opt.on{border-color:var(--gold);box-shadow:0 0 10px rgba(240,201,58,.4);color:var(--gold-bright);}
 .mo-name{font-size:9px;}
-.page-anim{animation:stadiumFlash 380ms cubic-bezier(.2,.9,.3,1);}
-@keyframes stadiumFlash{0%{opacity:0;transform:translateY(8px) scale(.97)}8%{opacity:.12}100%{opacity:1;transform:translateY(0) scale(1)}}
-.tab.on .ic{animation:tabPop .4s cubic-bezier(.2,1.6,.4,1);}
-@keyframes tabPop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+.page-anim{animation:pageFade 200ms ease forwards;}
+@keyframes pageFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .sound-btn{flex:0 0 auto;padding:6px 10px;font-size:15px;line-height:1;}
 .mbadge{display:inline-block;font-size:13px;animation:badgePop .5s cubic-bezier(.2,1.6,.4,1) both;}
 @keyframes badgePop{0%{transform:scale(0) rotate(-30deg);opacity:0}100%{transform:none;opacity:1}}
@@ -1616,47 +1481,6 @@ function StadiumBg() {
     };
   }, []);
   return <canvas ref={cvRef} aria-hidden style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 0, pointerEvents: "none" }} />;
-}
-
-const WELCOME_MSGS = [
-  "Fetching the fixtures…",
-  "Checking the leaderboard…",
-  "Warming up the squad…",
-  "Almost at kickoff…",
-  "Getting the latest scores…",
-];
-
-function WelcomeScreen({ errBanner }) {
-  const [msgIdx, setMsgIdx] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => setMsgIdx((i) => (i + 1) % WELCOME_MSGS.length), 2000);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="wc-app">
-      <style>{CSS + MASCOT_CSS}</style>
-      {errBanner}
-      <div className="welcome-screen">
-        <div className="welcome-stack">
-          <img src="/trophy-hero.jpg" className="welcome-trophy-img" alt="" aria-hidden />
-          <div className="welcome-title">WORLD CUP 2026</div>
-          <div className="welcome-tagline">THE LEAGUE IS LOADING</div>
-          <div className="welcome-flags">
-            {["Brazil", "France", "Argentina", "England", "Spain", "Germany"].map((n) => (
-              <Flag key={n} name={n} size={22} style={{ borderRadius: 4 }} />
-            ))}
-          </div>
-        </div>
-        <div className="welcome-bottom">
-          <div className="welcome-bar-track"><div className="welcome-bar-fill" /></div>
-          <div className="welcome-msg">{WELCOME_MSGS[msgIdx]}</div>
-        </div>
-      </div>
-      <span className="ver-badge">{APP_VERSION}</span>
-    </div>
-  );
 }
 
 const Sticker = ({ children, style }) => {
@@ -2502,7 +2326,6 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
       )}
       <div className="hero hero-grand">
         <div className="hero-glow" aria-hidden />
-        <img src="/trophy-hero.jpg" className="hero-trophy-img" alt="" aria-hidden />
         <div className="hero-kicker barlow">⚽ The Road to Glory ⚽</div>
         <h1 className="hero-mega">WORLD CUP<span>2026</span></h1>
         <div className="sub">{game.config.groupName} · Private Prediction League</div>
@@ -2714,29 +2537,6 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
   const matches = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === selDate)
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
-  const picksDragStart = useRef(null);
-  const onPicksPointerDown = (e) => {
-    picksDragStart.current = e.clientX;
-  };
-  const onPicksPointerUp = (e) => {
-    if (picksDragStart.current === null) return;
-    const delta = e.clientX - picksDragStart.current;
-    picksDragStart.current = null;
-    if (Math.abs(delta) < 40) return; // too short, ignore
-    const days = [...new Set(
-      game.matches
-        .filter((m) => m.status !== "void")
-        .map((m) => new Date(m.kickoff).toDateString())
-    )].sort((a, b) => new Date(a) - new Date(b));
-    const currentIndex = days.indexOf(selDate);
-    if (currentIndex === -1) return;
-    if (delta < 0 && currentIndex < days.length - 1) {
-      setSelDate(days[currentIndex + 1]);
-    } else if (delta > 0 && currentIndex > 0) {
-      setSelDate(days[currentIndex - 1]);
-    }
-  };
-
   const setPick = (m, patch) => {
     const overridden = me && hasOverride(m.id, me.id);
     if (patch.pred && onPickCelebrate) {
@@ -2756,7 +2556,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
   };
 
   return (
-    <div className="page picks-page" onPointerDown={onPicksPointerDown} onPointerUp={onPicksPointerUp}>
+    <div className="page">
       <div className="h-sec">Daily picks</div>
       <DateStrip game={game} selected={selDate} onSelect={setSelDate} />
       {!me && <div className="banner">Select your player in the top bar to make picks.</div>}
@@ -3960,349 +3760,23 @@ function ShamePage({ game, me, mutate }) {
   );
 }
 
-/* ════════════════ 3D GLOBE NAVIGATION ════════════════ */
-// Six glowing zones on the sphere surface — the globe IS the navigation.
-const GLOBE_ZONES = [
-  { lat: 0.3, lon: 0.0, color: "#ffd633", icon: "🏟️", label: "HOME", tab: "home" },
-  { lat: -0.2, lon: 1.1, color: "#16c264", icon: "✅", label: "PICKS", tab: "picks" },
-  { lat: 0.5, lon: 2.2, color: "#ff4d6d", icon: "⚔️", label: "WAR ROOM", tab: "war" },
-  { lat: -0.4, lon: 3.3, color: "#ffd633", icon: "🏆", label: "TABLE", tab: "board" },
-  { lat: 0.2, lon: 4.4, color: "#33d6e0", icon: "👤", label: "PROFILE", tab: "profile" },
-  { lat: -0.3, lon: 5.5, color: "#ff5fa2", icon: "🎯", label: "STATS", tab: "stats" },
-];
-const GLOBE_TAB_KEYS = new Set(GLOBE_ZONES.map((z) => z.tab));
-function hexA(hex, a) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-}
-
-function GlobeNav({ mini, activeTab, onSelect }) {
-  const canvasRef = useRef(null);
-  const sphereRef = useRef(null);
-  const atmoRef = useRef(null);
-  const stateRef = useRef(null);
-  if (!stateRef.current) {
-    stateRef.current = {
-      rotY: 0, rotX: 0.12,
-      dragging: false, lx: 0, ly: 0, moved: 0, downX: 0, downY: 0,
-      velX: 0, lastMoveT: 0, coasting: false, dotFade: 1, lastSnapZone: 0,
-      zoneIdx: 0, settled: true,
-      animating: false, animT0: 0, animDur: 500, animFY: 0, animTY: 0, animFX: 0, animTX: 0,
-      morph: mini ? 1 : 0, morphV: 0,
-      flashTab: null, flashUntil: 0, t: 0, trail: [],
-      cx: 0, cy: 0, R: 1,
-      bgOffset: 0, bgVel: 0, bgManual: false, bgIdleBase: 0, bgIdleStart: 0,
-      hintTab: null,
-    };
-  }
-  const [hintZone, setHintZone] = useState(null);
-  const propsRef = useRef({ mini, activeTab, onSelect });
-  propsRef.current = { mini, activeTab, onSelect };
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const s = stateRef.current;
-    const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    const TAU = Math.PI * 2;
-    const ROT_MULT = 0.011;     // drag responsiveness (was 0.008 — more reactive to touch)
-    const BG_PER_RAD = 18.75;   // Earth-texture offset (%) per radian of rotation
-    const DAMP = 0.92;          // momentum coast damping per frame
-    let W = 0, H = 0, dpr = 1;
-    function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = window.innerWidth; H = window.innerHeight;
-      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    resize();
-    window.addEventListener("resize", resize);
-
-    // spherical → screen using the live rotation + sphere geometry on state
-    function proj(lat, lon) {
-      const cl = Math.cos(lat), sl = Math.sin(lat);
-      const x0 = cl * Math.sin(lon + s.rotY);
-      const y0 = sl;
-      const z0 = cl * Math.cos(lon + s.rotY);
-      const cX = Math.cos(s.rotX), sX = Math.sin(s.rotX);
-      const y1 = y0 * cX - z0 * sX;
-      const z1 = y0 * sX + z0 * cX;
-      return { x: s.cx + s.R * x0, y: s.cy - s.R * y1, z: z1 };
-    }
-    function nearestZone() {
-      let best = GLOBE_ZONES[0], bz = -2;
-      for (const z of GLOBE_ZONES) { const p = proj(z.lat, z.lon); if (p.z > bz) { bz = p.z; best = z; } }
-      return best;
-    }
-    function angDiff(a, b) { let d = ((b - a + Math.PI) % TAU) - Math.PI; if (d < -Math.PI) d += TAU; return d; }
-    // smoothly rotate the globe so zone i sits front-and-centre (500ms ease-in-out).
-    // angDiff always picks the shortest arc, so it never spins the long way round.
-    function animateToZone(i) {
-      const z = GLOBE_ZONES[i];
-      if (s.lastSnapZone !== i) {
-        try { navigator.vibrate && navigator.vibrate(8); } catch (err) {}
-        s.lastSnapZone = i;
-      }
-      s.velX = 0;
-      s.animFY = s.rotY; s.animTY = s.rotY + angDiff(s.rotY, -z.lon);
-      s.animFX = s.rotX; s.animTX = z.lat;
-      s.animT0 = performance.now(); s.animating = true; s.settled = false;
-    }
-
-    const pt = (e) => ({ x: e.clientX, y: e.clientY });
-    function onDown(e) {
-      if (propsRef.current.mini) return;
-      s.dragging = true; s.moved = 0; s.animating = false; s.coasting = false;
-      s.velX = 0; s.lastMoveT = performance.now();
-      const p = pt(e); s.lx = p.x; s.ly = p.y; s.downX = p.x; s.downY = p.y;
-      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
-    }
-    function onMove(e) {
-      if (!s.dragging) return;
-      const p = pt(e); const dx = p.x - s.lx, dy = p.y - s.ly; s.lx = p.x; s.ly = p.y;
-      s.moved += Math.abs(dx) + Math.abs(dy);
-      // track swipe velocity (px / frame, capped) so release can carry momentum
-      const now = performance.now(), dt = now - s.lastMoveT;
-      if (dt > 0) s.velX = Math.max(-18, Math.min(18, (dx / dt) * 16));
-      s.lastMoveT = now;
-      if (!reduce) {
-        s.rotY += dx * ROT_MULT; s.rotX += dy * 0.004;
-        s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
-        s.bgOffset += dx * ROT_MULT * BG_PER_RAD;
-      }
-    }
-    function onUp() {
-      if (!s.dragging) return;
-      s.dragging = false;
-      const totalDragX = s.lx - s.downX, totalDragY = s.ly - s.downY;
-      const isTap = Math.abs(totalDragX) < 15 && Math.abs(totalDragY) < 15;
-
-      // Tap anywhere on a settled globe enters the current zone. A direct hit on
-      // a zone dot still wins as before — the whole surface is now tappable too.
-      if (isTap && s.settled) {
-        let best = null, bd = 1e9;
-        for (const z of GLOBE_ZONES) { const p = proj(z.lat, z.lon); if (p.z <= 0) continue; const d = Math.hypot(p.x - s.cx, p.y - s.cy); if (d < bd) { bd = d; best = z; } }
-        if (best && bd < 65) s.zoneIdx = GLOBE_ZONES.indexOf(best);
-        const zone = GLOBE_ZONES[s.zoneIdx];
-        s.flashTab = zone.tab; s.flashUntil = s.t + 14;
-        try { navigator.vibrate && navigator.vibrate(12); } catch (err) {}
-        propsRef.current.onSelect(zone.tab);
-        return;
-      }
-
-      // A fast flick coasts with momentum and settles wherever it slows down;
-      // a slow, deliberate swipe steps one zone and snaps straight away.
-      if (Math.abs(s.velX) > 0.8 && !reduce) {
-        s.coasting = true; s.settled = false;
-        return;
-      }
-      if (Math.abs(totalDragX) > 35) {
-        if (totalDragX < 0) s.zoneIdx = (s.zoneIdx + 1) % GLOBE_ZONES.length;
-        else s.zoneIdx = (s.zoneIdx - 1 + GLOBE_ZONES.length) % GLOBE_ZONES.length;
-      }
-      animateToZone(s.zoneIdx);
-    }
-    canvas.addEventListener("pointerdown", onDown);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-
-    let raf = 0, last = performance.now();
-    s.bgIdleStart = last; s.bgIdleBase = ((s.bgOffset % 200) + 200) % 200;
-    function frame(now) {
-      raf = requestAnimationFrame(frame);
-      const dt = now - last; last = now;
-      const slow = dt > 20;
-      const isMini = propsRef.current.mini, act = propsRef.current.activeTab;
-      s.t += 1;
-
-      // springy morph between full-screen and mini-corner. Expanding back to
-      // full (returning from a tab) springs a touch looser so the globe blooms
-      // out of the corner and overshoots ~6% before settling — a cinematic pop.
-      const target = isMini ? 1 : 0;
-      const stiff = target === 0 ? 0.16 : 0.18;
-      const damp = target === 0 ? 0.78 : 0.72;
-      s.morphV += (target - s.morph) * stiff; s.morphV *= damp; s.morph += s.morphV;
-      if (Math.abs(target - s.morph) < 0.001 && Math.abs(s.morphV) < 0.001) { s.morph = target; s.morphV = 0; }
-      const m = Math.max(-0.06, Math.min(1, s.morph));
-
-      // rotation: drag is live; otherwise coast on momentum, animate-to-zone,
-      // or drift idly. A fast flick coasts (damped) and only snaps to the
-      // nearest zone once it has slowed right down — so you can spin freely.
-      if (!s.dragging) {
-        if (isMini) { if (!reduce) s.rotY += 0.0032; }
-        else if (s.coasting) {
-          if (reduce) { s.coasting = false; animateToZone(GLOBE_ZONES.indexOf(nearestZone())); }
-          else {
-            const beforeY = s.rotY;
-            s.rotY += s.velX * ROT_MULT; s.velX *= DAMP;
-            s.bgOffset += (s.rotY - beforeY) * BG_PER_RAD; // Earth texture coasts too
-            s.zoneIdx = GLOBE_ZONES.indexOf(nearestZone());
-            if (Math.abs(s.velX) < 0.5) { s.coasting = false; animateToZone(GLOBE_ZONES.indexOf(nearestZone())); }
-          }
-        }
-        else if (s.animating) {
-          if (reduce) { s.rotY = s.animTY; s.rotX = s.animTX; s.animating = false; s.settled = true; }
-          else {
-            const beforeY = s.rotY;
-            const p = Math.min(1, (now - s.animT0) / s.animDur);
-            const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-            s.rotY = s.animFY + (s.animTY - s.animFY) * e;
-            s.rotX = s.animFX + (s.animTX - s.animFX) * e;
-            s.bgOffset += (s.rotY - beforeY) * BG_PER_RAD; // Earth texture follows the swipe
-            if (p >= 1) { s.animating = false; s.settled = true; }
-          }
-        } else if (!reduce) {
-          // idle: drift slowly (20% gentler than before — more majestic),
-          // keeping the current zone locked to whatever is centred
-          s.rotY += 0.0024;
-          s.zoneIdx = GLOBE_ZONES.indexOf(nearestZone());
-        }
-        s.rotX = Math.max(-0.8, Math.min(0.8, s.rotX));
-      }
-
-      // zone dots dim while the globe is spinning fast, then fade back in as it
-      // slows — spinning feels clean, landing on a zone feels intentional
-      const dotTarget = (s.dragging || s.coasting) && Math.abs(s.velX) > 2 ? 0.3 : 1;
-      s.dotFade += (dotTarget - s.dotFade) * 0.15;
-
-      // sphere geometry lerped between full and corner
-      const fR = Math.min(W, H) * 0.33, fcx = W / 2, fcy = H * 0.45;
-      const mR = 44, mcx = W - 64, mcy = H - 76;
-      s.R = fR + (mR - fR) * m; s.cx = fcx + (mcx - fcx) * m; s.cy = fcy + (mcy - fcy) * m;
-      const R = s.R, cx = s.cx, cy = s.cy;
-
-      ctx.clearRect(0, 0, W, H);
-
-      // size/position the real-Earth sphere to follow the morph; the canvas
-      // above only paints zones/overlays and stays transparent elsewhere
-      const sphereEl = sphereRef.current, atmoEl = atmoRef.current;
-      const d = R * 2;
-      if (sphereEl) {
-        sphereEl.style.left = cx + "px"; sphereEl.style.top = cy + "px";
-        sphereEl.style.width = d + "px"; sphereEl.style.height = d + "px";
-      }
-      if (atmoEl) {
-        const ad = d * 1.22;
-        atmoEl.style.left = cx + "px"; atmoEl.style.top = cy + "px";
-        atmoEl.style.width = ad + "px"; atmoEl.style.height = ad + "px";
-      }
-
-      // Earth spin: the CSS globeSpin animation drives the idle rotation; while
-      // dragging or coasting we pause it and shift background-position by hand,
-      // then re-phase and hand the spin back to CSS when the globe settles so
-      // it resumes from the current position without jumping.
-      if (sphereEl && !reduce) {
-        const manual = s.dragging || s.animating || s.coasting;
-        if (manual && !s.bgManual) {
-          const elapsed = (now - s.bgIdleStart) / 1000;
-          s.bgOffset = s.bgIdleBase + elapsed * 6.4; // globeSpin = 200% / 31.25s = 6.4%/s
-          s.bgManual = true;
-          sphereEl.style.animation = "none";
-        }
-        if (s.bgManual) {
-          if (!s.dragging) { s.bgOffset += s.bgVel; s.bgVel *= 0.95; }
-          sphereEl.style.backgroundPosition = (((s.bgOffset % 200) + 200) % 200) + "% center";
-        }
-        if (!manual && s.bgManual) {
-          s.bgManual = false;
-          const phase = (((s.bgOffset % 200) + 200) % 200) / 200;
-          sphereEl.style.animation = "";
-          sphereEl.style.animationDelay = (-phase * 31.25) + "s";
-          sphereEl.style.animationPlayState = "running";
-          sphereEl.style.backgroundPosition = "";
-          s.bgIdleBase = phase * 200; s.bgIdleStart = now;
-        }
-      } else if (sphereEl && reduce) {
-        sphereEl.style.animation = "none";
-      }
-
-      const front = nearestZone();
-      // surface the locked-on zone name as a hint below the full globe
-      if (!isMini) {
-        if (s.hintTab !== front.tab) { s.hintTab = front.tab; setHintZone(front); }
-      } else if (s.hintTab !== null) { s.hintTab = null; setHintZone(null); }
-      // motion trail of the front zone (skipped on slow frames)
-      if (!slow && m < 0.6) {
-        const fp = proj(front.lat, front.lon);
-        if (fp.z > 0) { s.trail.push({ x: fp.x, y: fp.y, c: front.color }); if (s.trail.length > 8) s.trail.shift(); }
-        for (let i = 0; i < s.trail.length; i++) { const tr = s.trail[i]; ctx.globalAlpha = (i / s.trail.length) * 0.22 * (1 - m); ctx.fillStyle = tr.c; ctx.beginPath(); ctx.arc(tr.x, tr.y, 6 * (i / s.trail.length), 0, TAU); ctx.fill(); }
-        ctx.globalAlpha = 1;
-      }
-      // targeting line to the locked-on zone
-      if (m < 0.5) {
-        const fp = proj(front.lat, front.lon);
-        if (fp.z > 0.2) { ctx.globalAlpha = (1 - m) * 0.3; ctx.strokeStyle = front.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(fp.x, fp.y); ctx.stroke(); ctx.globalAlpha = 1; }
-      }
-
-      // zones (dimmed by dotFade while spinning fast)
-      const pulse = 0.5 + 0.5 * Math.sin(s.t * 0.09);
-      const zf = (1 - m) * s.dotFade;
-      if (zf > 0.02) {
-        ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        for (const z of GLOBE_ZONES) {
-          const p = proj(z.lat, z.lon);
-          if (p.z <= 0.02) continue;
-          const depth = 0.55 + 0.45 * p.z;
-          const flashing = s.flashTab === z.tab && s.t < s.flashUntil;
-          ctx.save();
-          ctx.shadowBlur = 20; ctx.shadowColor = z.color;
-          ctx.globalAlpha = zf * (0.5 + 0.5 * p.z);
-          ctx.fillStyle = hexA(z.color, flashing ? 0.5 : 0.25);
-          ctx.beginPath(); ctx.arc(p.x, p.y, 36 * depth * (1 + 0.06 * pulse), 0, TAU); ctx.fill();
-          ctx.fillStyle = hexA(z.color, flashing ? 1 : 0.6);
-          ctx.beginPath(); ctx.arc(p.x, p.y, 20 * depth, 0, TAU); ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.globalAlpha = zf * Math.min(1, 0.6 + 0.5 * p.z);
-          ctx.font = `${Math.round(22 * depth)}px serif`;
-          ctx.fillText(z.icon, p.x, p.y - 1);
-          ctx.font = `${Math.round(13 * depth)}px 'Bebas Neue', sans-serif`;
-          ctx.fillStyle = "rgba(255,255,255,0.85)";
-          ctx.fillText(z.label, p.x, p.y + 30 * depth);
-          if (z.tab === act) {
-            const rr = (s.t % 60) / 60;
-            ctx.globalAlpha = zf * (1 - rr) * 0.8; ctx.strokeStyle = z.color; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(p.x, p.y, (20 + rr * 30) * depth, 0, TAU); ctx.stroke();
-          }
-          ctx.restore();
-        }
-      }
-      // The mini-corner gold ring + glow now live on the sphere's box-shadow
-      // (rendered outside its overflow:hidden clip), so the Earth sits cleanly
-      // inside the ring with no collision — nothing to paint here.
-    }
-    raf = requestAnimationFrame(frame);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-      canvas.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-  }, []);
-
-  return (
-    <>
-      <div ref={atmoRef} className={`globe-atmosphere${mini ? " is-mini" : ""}`} aria-hidden style={{ zIndex: mini ? 55 : 18 }} />
-      <div ref={sphereRef} className={`globe-sphere${mini ? " is-mini" : ""}`} aria-hidden style={{ zIndex: mini ? 56 : 19 }} />
-      <canvas ref={canvasRef} className={`globe-canvas${mini ? " is-mini" : ""}`} aria-label="globe navigation" />
-      {!mini && hintZone && (
-        <div className="globe-zone-hint">{hintZone.icon} {hintZone.label}</div>
-      )}
-    </>
-  );
-}
-
 /* ════════════════ APP SHELL ════════════════ */
+const SECTIONS = [
+  { key: "home", icon: "🏟️", label: "Home", colour: "#16c264", defaultPage: "today", pages: ["today", "home", "scores"] },
+  { key: "predict", icon: "✅", label: "Predict", colour: "#d4af37", defaultPage: "picks", pages: ["picks", "board", "underdog", "final8", "prizes"] },
+  { key: "social", icon: "⚔️", label: "Social", colour: "#9b59b6", defaultPage: "war", pages: ["war", "stats", "shame"] },
+  { key: "me", icon: "👤", label: "Me", colour: "#e67e22", defaultPage: "profile", pages: ["profile", "admin"] },
+];
+const PAGE_LABELS = {
+  today: "Today", home: "Dashboard", scores: "Scores",
+  picks: "Picks", board: "Table", underdog: "Underdog", final8: "Final 8", prizes: "Prizes",
+  war: "War Room", stats: "Stats", shame: "Shame",
+  profile: "Profile", admin: "Admin",
+};
+
 export default function App() {
   const [game, setGame] = useState(null);
-  const [tab, setTab] = useState("home");
-  const [globeMode, setGlobeMode] = useState(true);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [tab, setTab] = useState("today");
   const [meId, setMeIdRaw] = useState("");
   const [isAdmin, setIsAdminRaw] = useState(false);
   const [installHint, setInstallHint] = useState(false);
@@ -4333,12 +3807,6 @@ export default function App() {
   const [burst, setBurst] = useState(false);
   const [pageErrors, setPageErrors] = useState(supabaseInitError ? [supabaseInitError] : []);
   const [fxStatus, setFxStatus] = useState({ loading: false, error: "" });
-  // Keep the welcome screen up for at least 2s even when data loads instantly.
-  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setMinTimeElapsed(true), 2000);
-    return () => clearTimeout(t);
-  }, []);
 
   // On-screen error reporter: any JS error shows in a red banner so it can
   // be read and reported without opening developer tools.
@@ -4390,18 +3858,6 @@ export default function App() {
     if (res.matches.length > 0) await mutate((g) => mergeFixtures(g, res.matches));
     setFxStatus({ loading: false, error: res.matches.length === 0 ? "No World Cup fixtures today (or the API doesn't have them yet)." : "" });
   }, [mutate]);
-
-  // Globe → section: set the tab, shrink the globe to its corner, and keep
-  // live data fresh for the pages that show fixtures.
-  const goTab = useCallback((k) => {
-    setTab(k); setGlobeMode(false); setMoreOpen(false);
-    SFX.click(); try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
-    if (k === "home" || k === "picks" || k === "scores" || k === "today" || k === "war") pullFixtures(false);
-  }, [pullFixtures]);
-  const returnToGlobe = useCallback(() => {
-    setGlobeMode(true); setMoreOpen(false);
-    SFX.click(); try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
-  }, []);
 
   // fetch on load and whenever the API key first appears
   useEffect(() => { if (game?.config?.apiKey) pullFixtures(false); }, [game?.config?.apiKey, pullFixtures]);
@@ -4471,6 +3927,10 @@ export default function App() {
   const [profileId, setProfileId] = useState(null);
   const [detailMatch, setDetailMatch] = useState(null);
   useEffect(() => { _openMatch = (m) => setDetailMatch(m); return () => { _openMatch = () => {}; }; }, []);
+  useEffect(() => {
+    const el = document.querySelector(".sub-nav-pill.active");
+    if (el) el.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [tab]);
   useEffect(() => { _openProfile = (pid) => setProfileId(pid); return () => { _openProfile = () => {}; }; }, []);
   const [payout, setPayout] = useState(null);
   useEffect(() => {
@@ -4514,8 +3974,7 @@ export default function App() {
     </div>
   );
 
-  const showLoading = !game || !minTimeElapsed;
-  if (showLoading) return <WelcomeScreen errBanner={errBanner} />;
+  if (!game) return <div className="wc-app"><style>{CSS + MASCOT_CSS}</style>{errBanner}<div className="page bebas" style={{ fontSize: 26, textAlign: "center", paddingTop: 80 }}>WARMING UP ON THE TOUCHLINE… <span style={{ fontSize: 14 }}>{APP_VERSION}</span><div className="note" style={{ fontFamily: "Inter", letterSpacing: 0, marginTop: 12 }}>If this never goes away, the database connection is failing — check the red banner or Vercel env vars.</div></div></div>;
 
   const me = game.players.find((p) => p.id === meId) || null;
   const pot = game.config.buyIn * game.players.length;
@@ -4538,14 +3997,19 @@ export default function App() {
     }
   };
 
-  const ALL_TABS = [
-    ["today", "📅", "Today"], ["picks", "✅", "Picks"], ["profile", "👤", "Profile"], ["war", "⚔️", "War Room"], ["scores", "📺", "Scores"],
-    ["board", "🏆", "Table"], ["stats", "🎯", "Stats"], ["shame", "💀", "Shame"], ["underdog", "🐉", "Underdog"],
-    ["final8", "🎯", "Final 8"], ["prizes", "💰", "Prizes"], ["home", "🏟️", "Home"], ["admin", "🛠️", "Admin"],
-  ];
+  const FX_TABS = new Set(["home", "picks", "scores", "today", "war"]);
+  const goToPage = (k) => {
+    setTab(k);
+    SFX.click();
+    try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
+    if (FX_TABS.has(k)) pullFixtures(false);
+  };
+  const switchSection = (section) => goToPage(section.defaultPage);
+  const currentSection = SECTIONS.find((s) => s.pages.includes(tab)) || SECTIONS[0];
+  const visiblePages = currentSection.pages.filter((p) => (p === "admin" ? isAdmin : true));
 
   return (
-    <div className="wc-app">
+    <div className="wc-app" style={{ "--section-colour": currentSection.colour }}>
       <style>{CSS + MASCOT_CSS}</style>
       {errBanner}
       {installHint && (
@@ -4578,84 +4042,59 @@ export default function App() {
         </div>
       )}
       <StadiumBg />
+      <div className="topwrap">
+      <nav className="nav">
+        <div className="nav-headline">
+          <span className="nav-trophy">🏆</span>
+          <span className="hype-title">WC2026 · <span className="grp">{game.config.groupName}</span></span>
+          <span className="nav-trophy" style={{ animationDirection: "reverse" }}>🏆</span>
+        </div>
+        <div className="nav-controls">
+          <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
+            <option value="">Who are you?</option>
+            {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
+          </select>
+          {me && <button className="who bell-btn" title="Enable notifications"
+            onClick={async () => { const r = await enablePush(me.id, me.name); alert(r.msg); }}>🔔</button>}
+          <button className="who sound-btn" title="Toggle sound"
+            onClick={() => { const ns = !soundOn(); try { localStorage.setItem("wc26-sound", ns ? "1" : "0"); } catch (e) {} if (ns) { actx(); SFX.pick(); } setSoundTick((x) => x + 1); }}>{soundOn() ? "🔊" : "🔇"}</button>
+          <span className="pot-badge shine"><span className="coin"><span className="face">$</span><span className="face back">$</span></span>{game.config.currency}<CountUp value={pot} decimals={2} /></span>
+        </div>
+      </nav>
+      <Ticker game={game} />
+      <div className="sub-nav">
+        {visiblePages.map((p) => (
+          <button key={p} className={`sub-nav-pill ${tab === p ? "active" : ""}`} onClick={() => goToPage(p)}>
+            {PAGE_LABELS[p]}
+          </button>
+        ))}
+      </div>
+      </div>
 
-      <GlobeNav mini={!globeMode} activeTab={tab} onSelect={goTab} />
+      <div className="page-anim" key={tab}>
+      {tab === "home" && <HomePage game={game} me={me} go={setTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
+      {tab === "today" && <TodayPage game={game} me={me} go={setTab} />}
+      {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} isAdmin={isAdmin} />}
+      {tab === "profile" && <ProfilePage game={game} me={me} mutate={mutate} />}
+      {tab === "scores" && <LiveScoresPage game={game} onRefresh={() => pullFixtures(true)} />}
+      {tab === "war" && <WarRoom game={game} me={me} mutate={mutate} onRefresh={() => pullFixtures(true)} />}
+      {tab === "stats" && <StatsPage game={game} me={me} mutate={mutate} />}
+      {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
+      {tab === "final8" && <Final8Page game={game} me={me} mutate={mutate} />}
+      {tab === "board" && <LeaderboardPage game={game} meId={meId} />}
+      {tab === "shame" && <ShamePage game={game} me={me} mutate={mutate} />}
+      {tab === "prizes" && <PrizesPage game={game} />}
+      {tab === "admin" && <AdminPage game={game} mutate={mutate} isAdmin={isAdmin} setIsAdmin={setIsAdmin} fireConfetti={fireConfetti} onRefresh={() => pullFixtures(true)} fxStatus={fxStatus} />}
+      </div>
 
-      {globeMode ? (
-        <>
-          <div className="globe-title"><span className="hype-title">WC2026</span></div>
-          <div className="globe-player">
-            <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
-              <option value="">Who are you?</option>
-              {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
-            </select>
-          </div>
-          <span className="globe-pip">{game.config.currency}<CountUp value={pot} decimals={2} /></span>
-          <div className="globe-hint">Swipe to explore · tap a zone</div>
-        </>
-      ) : (
-        <>
-          <div className="topwrap">
-          <nav className="nav">
-            <div className="nav-headline">
-              <span className="nav-trophy">🏆</span>
-              <span className="hype-title">WC2026 · <span className="grp">{game.config.groupName}</span></span>
-              <span className="nav-trophy" style={{ animationDirection: "reverse" }}>🏆</span>
-            </div>
-            <div className="nav-controls">
-              <select className="who" value={meId} onChange={(e) => choosePlayer(e.target.value)} aria-label="select your player">
-                <option value="">Who are you?</option>
-                {game.players.map((p) => <option key={p.id} value={p.id}>{p.avatar} {p.name}{p.pin ? " 🔒" : ""}</option>)}
-              </select>
-              {me && <button className="who bell-btn" title="Enable notifications"
-                onClick={async () => { const r = await enablePush(me.id, me.name); alert(r.msg); }}>🔔</button>}
-              <button className="who sound-btn" title="Toggle sound"
-                onClick={() => { const ns = !soundOn(); try { localStorage.setItem("wc26-sound", ns ? "1" : "0"); } catch (e) {} if (ns) { actx(); SFX.pick(); } setSoundTick((x) => x + 1); }}>{soundOn() ? "🔊" : "🔇"}</button>
-              <span className="pot-badge shine"><span className="coin"><span className="face">$</span><span className="face back">$</span></span>{game.config.currency}<CountUp value={pot} decimals={2} /></span>
-            </div>
-          </nav>
-          <Ticker game={game} />
-          </div>
-
-          <div className="content-wrap">
-          <div className="page-anim" key={tab}>
-          {tab === "home" && <HomePage game={game} me={me} go={goTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
-          {tab === "today" && <TodayPage game={game} me={me} go={goTab} />}
-          {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} isAdmin={isAdmin} />}
-          {tab === "profile" && <ProfilePage game={game} me={me} mutate={mutate} />}
-          {tab === "scores" && <LiveScoresPage game={game} onRefresh={() => pullFixtures(true)} />}
-          {tab === "war" && <WarRoom game={game} me={me} mutate={mutate} onRefresh={() => pullFixtures(true)} />}
-          {tab === "stats" && <StatsPage game={game} me={me} mutate={mutate} />}
-          {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
-          {tab === "final8" && <Final8Page game={game} me={me} mutate={mutate} />}
-          {tab === "board" && <LeaderboardPage game={game} meId={meId} />}
-          {tab === "shame" && <ShamePage game={game} me={me} mutate={mutate} />}
-          {tab === "prizes" && <PrizesPage game={game} />}
-          {tab === "admin" && <AdminPage game={game} mutate={mutate} isAdmin={isAdmin} setIsAdmin={setIsAdmin} fireConfetti={fireConfetti} onRefresh={() => pullFixtures(true)} fxStatus={fxStatus} />}
-          </div>
-          </div>
-
-          <button className="more-btn-globe" onClick={() => { setMoreOpen(true); SFX.click(); }} aria-label="more sections">⋯</button>
-          <button className="globe-mini-hit" onClick={returnToGlobe} aria-label="back to globe navigation" />
-          <div className="globe-mini-label" aria-hidden>Globe</div>
-
-          {moreOpen && (
-            <>
-              <div className="more-bg" onClick={() => setMoreOpen(false)} />
-              <div className="more-sheet">
-                <div className="more-grip" />
-                <div className="more-grid">
-                  {ALL_TABS.filter(([k]) => !GLOBE_TAB_KEYS.has(k)).map(([k, ic, lab]) => (
-                    <button key={k} className={`more-item ${tab === k ? "on" : ""}`} onClick={() => goTab(k)}>
-                      <span className="more-ic">{ic}</span>{lab}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
+      <nav className="bottom-nav">
+        {SECTIONS.map((s) => (
+          <button key={s.key} className={`bottom-nav-tab ${currentSection.key === s.key ? "active" : ""}`} onClick={() => switchSection(s)}>
+            <span className="tab-icon">{s.icon}</span>
+            <span className="tab-label">{s.label}</span>
+          </button>
+        ))}
+      </nav>
       <span className="ver-badge">{APP_VERSION}</span>
     </div>
   );
