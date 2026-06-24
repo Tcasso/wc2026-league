@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v67";
+const APP_VERSION = "v68";
 
 // Supabase: keys come from Vercel environment variables.
 // Guarded so a bad/missing config shows an on-screen error instead of
@@ -527,6 +527,28 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .emoji-opt{font-size:24px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid transparent;cursor:pointer;background:#0a1810;transition:border-color .12s,background .12s;}
 .emoji-opt.on{border-color:var(--gold-bright);background:rgba(240,201,58,.15);}
 .emoji-opt:hover{border-color:rgba(201,168,76,.5);}
+/* picks page — allow vertical scroll, capture horizontal swipe for date nav */
+.picks-page{touch-action:pan-y;}
+/* section picker bottom sheet */
+.section-picker-bg{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);animation:fadeIn 0.2s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.section-picker-sheet{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(180deg,#0e2418,#08140c);border-radius:20px 20px 0 0;border-top:1px solid rgba(255,255,255,0.1);padding:12px 16px calc(24px + env(safe-area-inset-bottom));animation:slideUp 0.28s cubic-bezier(0.2,1.3,0.4,1);z-index:201;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.sp-grip{width:36px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;margin:0 auto 14px;}
+.sp-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:.06em;text-align:center;margin-bottom:14px;}
+.sp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.sp-grid:has(.sp-tile:nth-child(2):last-child){grid-template-columns:repeat(2,1fr);max-width:240px;margin-left:auto;margin-right:auto;}
+.sp-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);cursor:pointer;transition:all 0.15s ease;position:relative;}
+.sp-tile.active{background:color-mix(in srgb, var(--tile-colour) 20%, transparent);border-color:var(--tile-colour);box-shadow:0 0 16px color-mix(in srgb, var(--tile-colour) 30%, transparent);}
+.sp-tile:active{transform:scale(0.95);}
+.sp-tile-icon{font-size:26px;line-height:1;}
+.sp-tile-label{font-family:'Barlow Condensed';font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--white);}
+.sp-tile-dot{position:absolute;top:8px;right:8px;width:6px;height:6px;border-radius:50%;background:var(--tile-colour);}
+.sp-cancel{width:100%;padding:12px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);font-family:'Barlow Condensed';font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);cursor:pointer;}
+/* page position dots — sits above bottom nav */
+.page-dots{position:fixed;bottom:calc(64px + env(safe-area-inset-bottom) + 10px);left:50%;transform:translateX(-50%);display:flex;gap:6px;align-items:center;z-index:49;pointer-events:auto;}
+.page-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.25);cursor:pointer;transition:all 0.2s ease;}
+.page-dot.active{width:18px;border-radius:3px;background:var(--dot-colour);box-shadow:0 0 8px var(--dot-colour);}
 `;
 
 /* ── scoring tables ─────────────────────────────────────────── */
@@ -2537,6 +2559,29 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
   const matches = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === selDate)
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 
+  const picksDragStart = useRef(null);
+  const onPicksPointerDown = (e) => {
+    picksDragStart.current = e.clientX;
+  };
+  const onPicksPointerUp = (e) => {
+    if (picksDragStart.current === null) return;
+    const delta = e.clientX - picksDragStart.current;
+    picksDragStart.current = null;
+    if (Math.abs(delta) < 40) return;
+    const days = [...new Set(
+      game.matches
+        .filter((m) => m.status !== "void")
+        .map((m) => new Date(m.kickoff).toDateString())
+    )].sort((a, b) => new Date(a) - new Date(b));
+    const currentIndex = days.indexOf(selDate);
+    if (currentIndex === -1) return;
+    if (delta < 0 && currentIndex < days.length - 1) {
+      setSelDate(days[currentIndex + 1]);
+    } else if (delta > 0 && currentIndex > 0) {
+      setSelDate(days[currentIndex - 1]);
+    }
+  };
+
   const setPick = (m, patch) => {
     const overridden = me && hasOverride(m.id, me.id);
     if (patch.pred && onPickCelebrate) {
@@ -2556,7 +2601,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
   };
 
   return (
-    <div className="page">
+    <div className="page picks-page" onPointerDown={onPicksPointerDown} onPointerUp={onPicksPointerUp}>
       <div className="h-sec">Daily picks</div>
       <DateStrip game={game} selected={selDate} onSelect={setSelDate} />
       {!me && <div className="banner">Select your player in the top bar to make picks.</div>}
@@ -3773,10 +3818,28 @@ const PAGE_LABELS = {
   war: "War Room", stats: "Stats", shame: "Shame",
   profile: "Profile", admin: "Admin",
 };
+const PAGE_ICONS = {
+  today: "📅",
+  home: "🏟️",
+  scores: "📺",
+  picks: "✅",
+  board: "🏆",
+  underdog: "🐉",
+  final8: "🎯",
+  prizes: "💰",
+  war: "⚔️",
+  stats: "🎯",
+  shame: "💀",
+  profile: "👤",
+  admin: "🛠️",
+};
 
 export default function App() {
   const [game, setGame] = useState(null);
   const [tab, setTab] = useState("today");
+  const [sectionPickerOpen, setSectionPickerOpen] = useState(false);
+  const [sectionPickerTarget, setSectionPickerTarget] = useState(null);
+  const contentDragStart = useRef(null);
   const [meId, setMeIdRaw] = useState("");
   const [isAdmin, setIsAdminRaw] = useState(false);
   const [installHint, setInstallHint] = useState(false);
@@ -4004,9 +4067,42 @@ export default function App() {
     try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
     if (FX_TABS.has(k)) pullFixtures(false);
   };
-  const switchSection = (section) => goToPage(section.defaultPage);
+  const visiblePagesFor = (section) => section.pages.filter((p) => (p === "admin" ? isAdmin : true));
   const currentSection = SECTIONS.find((s) => s.pages.includes(tab)) || SECTIONS[0];
-  const visiblePages = currentSection.pages.filter((p) => (p === "admin" ? isAdmin : true));
+  const visiblePages = visiblePagesFor(currentSection);
+
+  const handleTabTap = (section) => {
+    setSectionPickerTarget(section);
+    setSectionPickerOpen(true);
+  };
+  const handlePickerSelect = (pageKey) => {
+    goToPage(pageKey);
+    setSectionPickerOpen(false);
+  };
+
+  const onContentPointerDown = (e) => {
+    if (tab === "picks") return;
+    contentDragStart.current = e.clientX;
+  };
+  const onContentPointerUp = (e) => {
+    if (contentDragStart.current === null || tab === "picks") return;
+    const delta = e.clientX - contentDragStart.current;
+    contentDragStart.current = null;
+    if (Math.abs(delta) < 50) return;
+    const section = SECTIONS.find((s) => s.pages.includes(tab));
+    if (!section) return;
+    const pages = visiblePagesFor(section);
+    const currentIndex = pages.indexOf(tab);
+    if (currentIndex === -1) return;
+    if (delta < 0 && currentIndex < pages.length - 1) {
+      setTab(pages[currentIndex + 1]);
+      SFX.click();
+    } else if (delta > 0 && currentIndex > 0) {
+      setTab(pages[currentIndex - 1]);
+      SFX.click();
+    }
+  };
+  const pageIndex = visiblePages.indexOf(tab);
 
   return (
     <div className="wc-app" style={{ "--section-colour": currentSection.colour }}>
@@ -4071,7 +4167,7 @@ export default function App() {
       </div>
       </div>
 
-      <div className="page-anim" key={tab}>
+      <div className="page-anim" key={tab} onPointerDown={onContentPointerDown} onPointerUp={onContentPointerUp} style={{ touchAction: "pan-y" }}>
       {tab === "home" && <HomePage game={game} me={me} go={setTab} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} />}
       {tab === "today" && <TodayPage game={game} me={me} go={setTab} />}
       {tab === "picks" && <PicksPage game={game} me={me} mutate={mutate} fxStatus={fxStatus} onRefresh={() => pullFixtures(true)} onPickCelebrate={celebratePick} isAdmin={isAdmin} />}
@@ -4087,14 +4183,55 @@ export default function App() {
       {tab === "admin" && <AdminPage game={game} mutate={mutate} isAdmin={isAdmin} setIsAdmin={setIsAdmin} fireConfetti={fireConfetti} onRefresh={() => pullFixtures(true)} fxStatus={fxStatus} />}
       </div>
 
+      {visiblePages.length > 1 && (
+        <div className="page-dots">
+          {visiblePages.map((p, i) => (
+            <span
+              key={p}
+              className={`page-dot ${i === pageIndex ? "active" : ""}`}
+              style={{ "--dot-colour": currentSection.colour }}
+              onClick={() => goToPage(p)}
+            />
+          ))}
+        </div>
+      )}
+
       <nav className="bottom-nav">
         {SECTIONS.map((s) => (
-          <button key={s.key} className={`bottom-nav-tab ${currentSection.key === s.key ? "active" : ""}`} onClick={() => switchSection(s)}>
+          <button key={s.key} className={`bottom-nav-tab ${currentSection.key === s.key ? "active" : ""}`} onClick={() => handleTabTap(s)}>
             <span className="tab-icon">{s.icon}</span>
             <span className="tab-label">{s.label}</span>
           </button>
         ))}
       </nav>
+
+      {sectionPickerOpen && sectionPickerTarget && (
+        <div className="section-picker-bg" onClick={() => setSectionPickerOpen(false)}>
+          <div className="section-picker-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sp-grip" />
+            <div className="sp-title" style={{ color: sectionPickerTarget.colour }}>
+              {sectionPickerTarget.icon} {sectionPickerTarget.label}
+            </div>
+            <div className="sp-grid">
+              {visiblePagesFor(sectionPickerTarget).map((pageKey) => (
+                <button
+                  key={pageKey}
+                  className={`sp-tile ${tab === pageKey ? "active" : ""}`}
+                  style={{ "--tile-colour": sectionPickerTarget.colour }}
+                  onClick={() => handlePickerSelect(pageKey)}
+                >
+                  <span className="sp-tile-icon">{PAGE_ICONS[pageKey]}</span>
+                  <span className="sp-tile-label">{PAGE_LABELS[pageKey]}</span>
+                  {tab === pageKey && <span className="sp-tile-dot" />}
+                </button>
+              ))}
+            </div>
+            <button className="sp-cancel" onClick={() => setSectionPickerOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       <span className="ver-badge">{APP_VERSION}</span>
     </div>
   );
