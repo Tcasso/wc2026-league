@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v69";
+const APP_VERSION = "v70";
 
 // Supabase: keys come from Vercel environment variables.
 // Guarded so a bad/missing config shows an on-screen error instead of
@@ -563,18 +563,19 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 /* ── pitch-style match cards (Picks page) ── */
 .match-card-pitch{position:relative;border-radius:14px;overflow:hidden;margin-bottom:12px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 20px rgba(0,0,0,0.4);min-height:130px;}
 .pitch-bg{position:absolute;inset:0;display:flex;}
-.pitch-zone{flex:1;opacity:0.18;}
-.pitch-zone-a{background:var(--team-colour, #16c264);}
-.pitch-zone-b{background:var(--team-colour, #e63946);}
+.pitch-bg::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,0.2),rgba(0,0,0,0.38));pointer-events:none;}
+.pitch-zone{flex:1;opacity:0.85;}
+.pitch-zone-a{background:var(--team-colour, #16c264);opacity:0.85;}
+.pitch-zone-b{background:var(--team-colour, #e63946);opacity:0.85;}
 .pitch-centre-line{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.25);transform:translateX(-50%);}
 .pitch-centre-circle{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:transparent;}
 .pitch-bg::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent,transparent 28px,rgba(0,0,0,0.06) 28px,rgba(0,0,0,0.06) 56px);}
 .pitch-meta{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:.14em;color:var(--muted);padding:10px 12px 0;}
 .pitch-content{position:relative;z-index:1;display:flex;align-items:center;padding:14px 10px;gap:8px;}
 .pitch-team{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;}
-.pitch-team-name{font-family:'Bebas Neue';font-size:13px;letter-spacing:.04em;line-height:1;color:var(--white);}
-.pitch-pick-btn{padding:5px 12px;border-radius:999px;border:1.5px solid var(--pick-colour, #16c264);background:transparent;color:var(--pick-colour, #16c264);font-family:'Bebas Neue';font-size:13px;letter-spacing:.05em;cursor:pointer;transition:all 0.18s ease;white-space:nowrap;}
-.pitch-pick-btn.selected{background:var(--pick-colour, #16c264);color:#06140c;box-shadow:0 0 12px color-mix(in srgb, var(--pick-colour) 50%, transparent);}
+.pitch-team-name{font-family:'Bebas Neue';font-size:13px;letter-spacing:.04em;line-height:1;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.8);}
+.pitch-pick-btn{padding:5px 12px;border-radius:999px;border:1.5px solid #fff;background:rgba(0,0,0,0.28);color:#fff;font-family:'Bebas Neue';font-size:13px;letter-spacing:.05em;cursor:pointer;transition:all 0.18s ease;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.8);}
+.pitch-pick-btn.selected{background:#fff;color:#06140c;border-color:#fff;text-shadow:none;box-shadow:0 0 14px rgba(255,255,255,0.5);}
 .pitch-pick-btn:disabled{opacity:0.45;cursor:not-allowed;}
 .pitch-centre{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:64px;}
 .pitch-score{font-size:28px;color:var(--gold-bright);line-height:1;text-shadow:0 0 12px rgba(240,201,58,0.5);}
