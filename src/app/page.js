@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v72";
+const APP_VERSION = "v73";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -588,7 +588,7 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 /* ── scoring tables ─────────────────────────────────────────── */
 const STAGES = ["GROUP", "R32", "R16", "QF", "SF", "FINAL"];
 const STAGE_LABEL = { GROUP: "Group Stage", R32: "Round of 32", R16: "Round of 16", QF: "Quarter-Final", SF: "Semi-Final", FINAL: "Final" };
-const DAILY_PTS = { GROUP: [3, 2], R32: [5, 3], R16: [5, 3], QF: [8, 4], SF: [12, 5], FINAL: [15, 5] };
+const STAGE_PTS = { GROUP: 3, R32: 5, R16: 8, QF: 10, SF: 13, FINAL: 18 };
 const UD_MILESTONES = [
   ["qualified", "Qualified from group", 10],
   ["r16", "Reached Round of 16", 15],
@@ -1014,6 +1014,7 @@ function Flag({ name, size = 20, style }) {
 function apiStage(s) {
   if (!s) return "GROUP";
   s = String(s).toUpperCase();
+  if (s.includes("ROUND_OF_32") || s.includes("LAST_32") || s === "R32") return "R32";
   if (s.includes("ROUND_OF_16")) return "R16";
   if (s.includes("QUARTER")) return "QF";
   if (s.includes("SEMI")) return "SF";
@@ -1055,6 +1056,10 @@ function mergeFixtures(g, apiMatches) {
     if (existing) {
       existing.status = status === "live" ? "scheduled" : status;
       existing.live = status === "live";
+      // Preserve the raw API stage, and re-apply the mapped stage so matches
+      // that synced under an old/broken mapping (e.g. R32 stored as GROUP) self-correct.
+      existing.apiStage = am.stage;
+      existing.stage = stage;
       // carry the score for live AND finished matches (live = running score)
       if ((status === "finished" || status === "live") && am.score?.fullTime) {
         if (am.score.fullTime.home != null) existing.scoreA = am.score.fullTime.home;
@@ -1062,7 +1067,7 @@ function mergeFixtures(g, apiMatches) {
       }
     } else {
       g.matches.push({ id: uid(), apiId: String(am.id), teamA: tA.id, teamB: tB.id,
-        kickoff: am.utcDate, stage, status: status === "live" ? "scheduled" : status, live: status === "live",
+        kickoff: am.utcDate, stage, apiStage: am.stage, status: status === "live" ? "scheduled" : status, live: status === "live",
         scoreA: am.score?.fullTime?.home ?? null, scoreB: am.score?.fullTime?.away ?? null });
     }
   }
@@ -1108,9 +1113,8 @@ function matchResult(m) {
 function pickPoints(m, pick) {
   if (!pick || m.status !== "finished") return 0;
   const res = matchResult(m);
-  const [base] = DAILY_PTS[m.stage] || [3];
   if (pick.pred !== res) return 0;
-  return base; // flat points for a correct result — no scoreline bonus
+  return STAGE_PTS[m.stage] || 3; // flat points for a correct result — no scoreline bonus
 }
 function teamUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_VALUE[t.furthest] || 0); }
 function teamGroupUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_RANK[t.furthest] >= 1 ? 10 : 0); }
@@ -2743,7 +2747,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
           </div>
         );
       })}
-      <div className="note">All kickoff times are shown in your own timezone, automatically. Scoring — Group 3 · R32/R16 5 · QF 8 · SF 12 · Final 15 for a correct result. Picks lock 2 hours before kickoff. Miss the window and it's 0 — no catch-up.</div>
+      <div className="note">All kickoff times are shown in your own timezone, automatically. Scoring — Group 3 · R32 5 · R16 8 · QF 10 · SF 13 · Final 18 for a correct result. Picks lock 2 hours before kickoff. Miss the window and it's 0 — no catch-up.</div>
     </div>
   );
 }
@@ -4005,6 +4009,19 @@ export default function App() {
     }, 1500);
     return () => clearTimeout(t);
   }, [game && game.rankSnapDate]);
+
+  // One-time self-heal: earlier syncs mis-stored Round-of-32 games as GROUP
+  // before the API stage was mapped. Now that apiStage is preserved, relabel
+  // any such match so live scoring picks up the correct 5-pt stage. Idempotent.
+  useEffect(() => {
+    if (!game) return;
+    const isMisfiledR32 = (m) => m.stage === "GROUP" && m.apiStage && apiStage(m.apiStage) === "R32";
+    if (!game.matches.some(isMisfiledR32)) return;
+    const t = setTimeout(() => {
+      mutate((g) => { g.matches.forEach((m) => { if (isMisfiledR32(m)) m.stage = "R32"; }); });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [game && game.matches && game.matches.length]);
 
   // Trigger the notification check on app open and every few minutes while
   // open. With several people using the app through the day, this reliably
