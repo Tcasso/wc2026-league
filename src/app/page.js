@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v73";
+const APP_VERSION = "v74";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -1065,10 +1065,13 @@ function mergeFixtures(g, apiMatches) {
         if (am.score.fullTime.home != null) existing.scoreA = am.score.fullTime.home;
         if (am.score.fullTime.away != null) existing.scoreB = am.score.fullTime.away;
       }
+      advanceFurthestOnResult(g, existing);
     } else {
-      g.matches.push({ id: uid(), apiId: String(am.id), teamA: tA.id, teamB: tB.id,
+      const nm = { id: uid(), apiId: String(am.id), teamA: tA.id, teamB: tB.id,
         kickoff: am.utcDate, stage, apiStage: am.stage, status: status === "live" ? "scheduled" : status, live: status === "live",
-        scoreA: am.score?.fullTime?.home ?? null, scoreB: am.score?.fullTime?.away ?? null });
+        scoreA: am.score?.fullTime?.home ?? null, scoreB: am.score?.fullTime?.away ?? null };
+      g.matches.push(nm);
+      advanceFurthestOnResult(g, nm);
     }
   }
   // Clean up any "TBA" placeholders created by earlier versions.
@@ -1118,6 +1121,20 @@ function pickPoints(m, pick) {
 }
 function teamUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_VALUE[t.furthest] || 0); }
 function teamGroupUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_RANK[t.furthest] >= 1 ? 10 : 0); }
+// A knockout win moves the winner up one milestone — the round they advanced
+// INTO. Keys are match stages; values are the milestone keys UD_VALUE/UD_RANK use.
+const KO_WIN_MILESTONE = { R32: "r16", R16: "qf", QF: "sf", SF: "final", FINAL: "won" };
+// After a finished knockout match, advance the winning team's `furthest`, only
+// ever forward (UD_RANK guards against going backwards). Draws decided on
+// penalties are skipped — the winner can't be derived from the full-time score.
+function advanceFurthestOnResult(g, m) {
+  const next = KO_WIN_MILESTONE[m.stage];
+  if (!next || m.status !== "finished" || m.scoreA == null || m.scoreB == null) return;
+  const winnerId = m.scoreA > m.scoreB ? m.teamA : m.scoreB > m.scoreA ? m.teamB : null;
+  if (!winnerId) return;
+  const team = g.teams.find((t) => t.id === winnerId);
+  if (team && (UD_RANK[next] || 0) > (UD_RANK[team.furthest] || 0)) team.furthest = next;
+}
 
 function computeStandings(game) {
   const { players, matches, picks, underdog, final8, teams } = game;
@@ -3151,6 +3168,7 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
     mutate((g) => {
       const mm = g.matches.find((x) => x.id === m.id);
       mm.scoreA = Number(sa); mm.scoreB = Number(sb); mm.status = "finished";
+      advanceFurthestOnResult(g, mm);
     });
     fireConfetti();
   };
