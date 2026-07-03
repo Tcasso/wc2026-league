@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v74";
+const APP_VERSION = "v75";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -583,6 +583,47 @@ input:focus,select:focus,.btn:focus-visible{outline:2px solid var(--sky);outline
 .pitch-extra{position:relative;z-index:1;padding:0 12px;}
 .pitch-extra:empty{display:none;}
 .pitch-calledit{text-align:center;padding:6px;margin:0 -12px;background:rgba(240,201,58,0.12);border-top:1px solid rgba(240,201,58,0.3);font-family:'Bebas Neue';font-size:14px;color:var(--gold-bright);letter-spacing:.08em;}
+/* ── knockout stage theme ── */
+.hero-stage-chip{position:relative;display:inline-flex;align-items:center;gap:7px;margin-top:12px;padding:6px 16px;border-radius:999px;
+  background:rgba(7,13,10,.72);border:1px solid var(--gold);font-family:'Barlow Condensed';text-transform:uppercase;
+  font-size:12px;letter-spacing:.22em;color:var(--gold-bright);animation:chipGlow 2.4s ease-in-out infinite;}
+@keyframes chipGlow{0%,100%{box-shadow:0 0 6px rgba(240,201,58,.25)}50%{box-shadow:0 0 18px rgba(240,201,58,.6)}}
+.stage-tracker{display:flex;align-items:center;justify-content:space-between;gap:2px;margin-top:14px;padding:14px 12px;border-radius:14px;
+  background:linear-gradient(160deg,rgba(18,58,35,.85),rgba(9,26,16,.92));border:1px solid rgba(201,168,76,.25);overflow-x:auto;scrollbar-width:none;}
+.stage-tracker::-webkit-scrollbar{display:none;}
+.st-node{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto;}
+.st-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:13px;
+  background:#0a1810;border:1px solid rgba(138,170,150,.3);color:var(--muted);}
+.st-lab{font-family:'Barlow Condensed';font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap;}
+.st-node.done .st-dot{background:rgba(45,110,71,.5);border-color:#3fae6c;color:#bdf3d2;}
+.st-node.done .st-lab{color:#7fb99a;}
+.st-node.now .st-dot{background:linear-gradient(135deg,var(--gold),var(--gold-bright));border-color:var(--gold-bright);color:#1a1405;font-weight:700;
+  animation:stNowPulse 1.8s ease-in-out infinite;}
+.st-node.now .st-lab{color:var(--gold-bright);font-weight:700;}
+@keyframes stNowPulse{0%,100%{box-shadow:0 0 8px rgba(240,201,58,.45)}50%{box-shadow:0 0 22px rgba(240,201,58,.9)}}
+.st-link{flex:1;height:2px;min-width:8px;background:rgba(138,170,150,.25);border-radius:1px;}
+.st-link.done{background:linear-gradient(90deg,#3fae6c,var(--gold));box-shadow:0 0 6px rgba(63,174,108,.4);}
+/* round-of-16 countdown */
+.r16-timer{position:relative;overflow:hidden;text-align:center;margin-top:14px;padding:16px 14px 14px;border-radius:16px;
+  background:radial-gradient(ellipse 80% 90% at 50% 0%,rgba(240,201,58,.16),transparent 65%),linear-gradient(160deg,rgba(18,58,35,.9),rgba(9,26,16,.95));
+  border:1px solid rgba(201,168,76,.45);box-shadow:0 4px 20px rgba(0,0,0,.35);}
+.r16-timer-label{font-family:'Barlow Condensed';font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold-bright);margin-bottom:10px;}
+.r16-boxes{display:flex;justify-content:center;gap:8px;}
+.rt-box{background:#050a06;border:1px solid rgba(201,168,76,.4);border-radius:10px;padding:8px 0 6px;width:64px;}
+.rt-num{font-family:'Bebas Neue';font-size:32px;line-height:1;color:var(--gold-bright);text-shadow:0 0 14px rgba(240,201,58,.5);font-variant-numeric:tabular-nums;}
+.rt-lab{font-family:'Barlow Condensed';font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:3px;}
+.r16-timer-sub{font-family:'Barlow Condensed';font-size:11px;letter-spacing:.08em;color:var(--muted);margin-top:9px;}
+/* qualified-for-next-round table */
+.qual-panel{margin-top:16px;padding:14px;border-radius:16px;background:linear-gradient(180deg,rgba(13,50,28,.88),rgba(9,26,18,.92));border:1px solid rgba(63,174,108,.35);}
+.qual-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}
+.qual-title{font-family:'Bebas Neue';font-size:19px;letter-spacing:.07em;color:var(--white);}
+.qual-count{font-family:'Bebas Neue';font-size:14px;color:var(--gold-bright);background:rgba(240,201,58,.1);border:1px solid rgba(240,201,58,.35);border-radius:999px;padding:2px 11px;white-space:nowrap;}
+.qual-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px;}
+.qual-chip{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;background:rgba(45,110,71,.24);border:1px solid rgba(63,174,108,.4);animation:rowIn .4s ease both;}
+.qual-chip .qc-name{font-family:'Bebas Neue';font-size:15px;letter-spacing:.04em;line-height:1;}
+.qual-chip .qc-grp{margin-left:auto;font-family:'Barlow Condensed';font-size:9px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;}
+.qual-chip.tbd{background:rgba(10,24,16,.5);border-style:dashed;border-color:rgba(138,170,150,.3);justify-content:center;}
+.qual-chip.tbd .qc-name{color:var(--muted);}
 `;
 
 /* ── scoring tables ─────────────────────────────────────────── */
@@ -1121,19 +1162,27 @@ function pickPoints(m, pick) {
 }
 function teamUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_VALUE[t.furthest] || 0); }
 function teamGroupUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_RANK[t.furthest] >= 1 ? 10 : 0); }
-// A knockout win moves the winner up one milestone — the round they advanced
-// INTO. Keys are match stages; values are the milestone keys UD_VALUE/UD_RANK use.
+// Appearing in a knockout match proves a team reached that round whatever the
+// result — an R32 fixture alone means it qualified from its group. A win then
+// moves it up one more milestone, the round it advanced INTO. Keys are match
+// stages; values are the milestone keys UD_VALUE/UD_RANK use.
+const KO_PLAY_MILESTONE = { R32: "qualified", R16: "r16", QF: "qf", SF: "sf", FINAL: "final" };
 const KO_WIN_MILESTONE = { R32: "r16", R16: "qf", QF: "sf", SF: "final", FINAL: "won" };
-// After a finished knockout match, advance the winning team's `furthest`, only
-// ever forward (UD_RANK guards against going backwards). Draws decided on
-// penalties are skipped — the winner can't be derived from the full-time score.
+function bumpFurthest(g, teamId, milestone) {
+  const team = g.teams.find((t) => t.id === teamId);
+  if (team && (UD_RANK[milestone] || 0) > (UD_RANK[team.furthest] || 0)) team.furthest = milestone;
+}
+// `furthest` only ever moves forward (UD_RANK guards against going backwards).
+// Draws decided on penalties skip the winner bump — the winner can't be
+// derived from the full-time score.
 function advanceFurthestOnResult(g, m) {
-  const next = KO_WIN_MILESTONE[m.stage];
-  if (!next || m.status !== "finished" || m.scoreA == null || m.scoreB == null) return;
+  const inRound = KO_PLAY_MILESTONE[m.stage];
+  if (!inRound) return;
+  bumpFurthest(g, m.teamA, inRound);
+  bumpFurthest(g, m.teamB, inRound);
+  if (m.status !== "finished" || m.scoreA == null || m.scoreB == null) return;
   const winnerId = m.scoreA > m.scoreB ? m.teamA : m.scoreB > m.scoreA ? m.teamB : null;
-  if (!winnerId) return;
-  const team = g.teams.find((t) => t.id === winnerId);
-  if (team && (UD_RANK[next] || 0) > (UD_RANK[team.furthest] || 0)) team.furthest = next;
+  if (winnerId) bumpFurthest(g, winnerId, KO_WIN_MILESTONE[m.stage]);
 }
 
 function computeStandings(game) {
@@ -2366,6 +2415,103 @@ function LiveScoresPage({ game, onRefresh }) {
   );
 }
 
+/* ── knockout stage widgets (presentational only) ── */
+const STAGE_SHORT = { GROUP: "Groups", R32: "Rd of 32", R16: "Rd of 16", QF: "Quarters", SF: "Semis", FINAL: "Final" };
+const STAGE_DOT = { GROUP: "G", R32: "32", R16: "16", QF: "8", SF: "4", FINAL: "🏆" };
+function currentStage(game) {
+  let last = "GROUP";
+  for (const s of STAGES) {
+    const ms = game.matches.filter((m) => m.stage === s && m.status !== "void");
+    if (!ms.length) continue;
+    if (ms.some((m) => m.status !== "finished")) return s;
+    last = s;
+  }
+  return last;
+}
+
+function StageTracker({ game }) {
+  const idx = STAGES.indexOf(currentStage(game));
+  return (
+    <div className="stage-tracker">
+      {STAGES.map((s, i) => (
+        <React.Fragment key={s}>
+          {i > 0 && <span className={`st-link ${i <= idx ? "done" : ""}`} />}
+          <div className={`st-node ${i < idx ? "done" : i === idx ? "now" : ""}`}>
+            <span className="st-dot">{i < idx ? "✓" : STAGE_DOT[s]}</span>
+            <span className="st-lab">{STAGE_SHORT[s]}</span>
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+// Shown until the first R16 kickoff; falls back to the official R16 start
+// date if those fixtures haven't synced yet.
+const R16_FALLBACK_KICKOFF = "2026-07-04T15:00:00Z";
+function R16Countdown({ game }) {
+  useTick(true);
+  const first = game.matches.filter((m) => m.stage === "R16" && m.status !== "void")
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff))[0];
+  const target = new Date(first ? first.kickoff : R16_FALLBACK_KICKOFF).getTime();
+  const diff = target - Date.now();
+  if (diff <= 0) return null;
+  const pad = (n) => String(n).padStart(2, "0");
+  const units = [
+    [Math.floor(diff / 86400000), "Days"],
+    [pad(Math.floor(diff / 3600000) % 24), "Hrs"],
+    [pad(Math.floor(diff / 60000) % 60), "Min"],
+    [pad(Math.floor(diff / 1000) % 60), "Sec"],
+  ];
+  return (
+    <div className="r16-timer shine">
+      <div className="r16-timer-label">⏳ Round of 16 kicks off in</div>
+      <div className="r16-boxes">
+        {units.map(([v, l]) => (
+          <div className="rt-box" key={l}><div className="rt-num">{v}</div><div className="rt-lab">{l}</div></div>
+        ))}
+      </div>
+      <div className="r16-timer-sub">
+        First kickoff · {new Date(target).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+        {first ? "" : " (provisional — updates when fixtures sync)"}
+      </div>
+    </div>
+  );
+}
+
+const NEXT_ROUND_SLOTS = { r16: 16, qf: 8, sf: 4, final: 2, won: 1 };
+function QualifiedTable({ game }) {
+  const cur = currentStage(game);
+  const milestone = KO_WIN_MILESTONE[cur];
+  if (!milestone) return null;
+  const nextStage = STAGES[STAGES.indexOf(cur) + 1];
+  const title = cur === "FINAL" ? "🏆 World Champions" : `✅ Through to the ${STAGE_LABEL[nextStage]}`;
+  const slots = NEXT_ROUND_SLOTS[milestone];
+  const through = game.teams
+    .filter((t) => (UD_RANK[t.furthest] || 0) >= UD_RANK[milestone])
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <div className="qual-panel">
+      <div className="qual-head">
+        <div className="qual-title">{title}</div>
+        <div className="qual-count">{Math.min(through.length, slots)} / {slots} CONFIRMED</div>
+      </div>
+      <div className="qual-grid">
+        {through.map((t, i) => (
+          <div className="qual-chip" key={t.id} style={{ animationDelay: `${i * 40}ms` }}>
+            <Flag name={t.name} size={16} />
+            <span className="qc-name">{t.name}</span>
+            {t.group && <span className="qc-grp">Grp {t.group}</span>}
+          </div>
+        ))}
+        {Array.from({ length: Math.max(0, slots - through.length) }, (_, i) => (
+          <div className="qual-chip tbd" key={`tbd${i}`}><span className="qc-name">TBD</span></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ game, me, go, fxStatus, onRefresh }) {
   const rows = computeStandings(game).sort((a, b) => b.total - a.total);
   const now = Date.now();
@@ -2382,6 +2528,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
   const nextLock = todays.filter((m) => m.status !== "finished").map((m) => new Date(m.kickoff).getTime() - 7200000).filter((t) => t > now).sort((a, b) => a - b)[0];
   const liveNow = game.matches.filter((m) => m.live).length;
   const mover = biggestMover(game);
+  const curStage = currentStage(game);
   let hookText;
   if (liveNow > 0) hookText = `🔴 ${liveNow} match${liveNow > 1 ? "es" : ""} LIVE right now — watch it unfold`;
   else if (todays.length > 0) {
@@ -2407,6 +2554,9 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
         <div className="hero-kicker barlow">⚽ The Road to Glory ⚽</div>
         <h1 className="hero-mega">WORLD CUP<span>2026</span></h1>
         <div className="sub">{game.config.groupName} · Private Prediction League</div>
+        {curStage !== "GROUP" && (
+          <div className="hero-stage-chip">⚔️ Knockouts · {STAGE_LABEL[curStage]}</div>
+        )}
         <div className="hero-cards">
           <div className="hero-pot">
             <div className="barlow muted" style={{ fontSize: 11, letterSpacing: ".2em" }}>Total Pot</div>
@@ -2427,6 +2577,9 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
           )}
         </div>
       </div>
+
+      <StageTracker game={game} />
+      <R16Countdown game={game} />
 
       {(() => {
         const motd = matchOfDay(game);
@@ -2525,6 +2678,8 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
         }
         return null;
       })()}
+
+      <QualifiedTable game={game} />
 
       {!game.config.apiKey && (
         <div className="banner" style={{ marginTop: 16 }}>
