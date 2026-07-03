@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v75";
+const APP_VERSION = "v76";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -1056,9 +1056,9 @@ function apiStage(s) {
   if (!s) return "GROUP";
   s = String(s).toUpperCase();
   if (s.includes("ROUND_OF_32") || s.includes("LAST_32") || s === "R32") return "R32";
-  if (s.includes("ROUND_OF_16")) return "R16";
-  if (s.includes("QUARTER")) return "QF";
-  if (s.includes("SEMI")) return "SF";
+  if (s.includes("ROUND_OF_16") || s.includes("LAST_16")) return "R16";
+  if (s.includes("QUARTER") || s.includes("LAST_8")) return "QF";
+  if (s.includes("SEMI") || s.includes("LAST_4")) return "SF";
   if (s.includes("FINAL")) return "FINAL";
   return "GROUP";
 }
@@ -1079,6 +1079,10 @@ async function fetchFixtureData(apiKey) {
 }
 // Merges fetched fixtures into the league object (mutates g in place).
 function mergeFixtures(g, apiMatches) {
+  // Re-derive every stored match's stage from its raw API stage, so matches
+  // saved under an old/broken mapping (e.g. LAST_16 stored as GROUP) heal even
+  // when they're outside the current API payload's date window.
+  for (const m of g.matches) if (m.apiStage) m.stage = apiStage(m.apiStage);
   for (const am of apiMatches) {
     // Knockout games with undecided teams come through blank — skip them.
     // They merge in automatically once the real teams are known.
