@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v79";
+const APP_VERSION = "v80";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -1196,12 +1196,29 @@ async function enablePush(playerId, playerName) {
 /* ── scoring engine ─────────────────────────────────────────── */
 function matchResult(m) {
   if (m.status !== "finished") return null;
+  if (m.stage === "SF" || m.stage === "FINAL") {
+    // SF/Final are scored on WHO GOES THROUGH — never a draw. A level 90-min
+    // score is undecidable (null) until the qualifier lands (admin or API).
+    if (m.qualifier === "A" || m.qualifier === "B") return m.qualifier;
+    return m.scoreA > m.scoreB ? "A" : m.scoreA < m.scoreB ? "B" : null;
+  }
   return m.scoreA > m.scoreB ? "A" : m.scoreA < m.scoreB ? "B" : "D";
+}
+// SF/Final picks are one merged "who goes through" answer, but old picks may
+// carry only pred or only qual — each falls back to the other. pred 'D' gets
+// no fallback: it can never match a through-result and scores 0.
+function koCallOf(pk) {
+  if (!pk) return null;
+  if (pk.pred === "A" || pk.pred === "B") return pk.pred;
+  if (pk.pred === "D") return "D";
+  return pk.qual === "A" || pk.qual === "B" ? pk.qual : null;
 }
 function pickPoints(m, pick) {
   if (!pick || m.status !== "finished") return 0;
   const res = matchResult(m);
-  if (pick.pred !== res) return 0;
+  if (!res) return 0; // SF/Final level after 90 with no qualifier yet — undecided
+  const pred = m.stage === "SF" || m.stage === "FINAL" ? koCallOf(pick) : pick.pred;
+  if (pred !== res) return 0;
   return STAGE_PTS[m.stage] || 3; // flat points for a correct result — no scoreline bonus
 }
 function teamUdPts(t) { return (t.wonAll3 ? 5 : 0) + (UD_VALUE[t.furthest] || 0); }
@@ -1249,11 +1266,14 @@ function finalOutcome(game) {
 }
 
 // SF/FINAL pick extensions for one finished match: qualifier call (+8) and
-// exact 90-min scoreline (+20). Stack on top of the result pick.
+// exact 90-min scoreline (+20). Stack on top of the result pick. A match with
+// no through-result yet (level, qualifier unset) awards nothing until it's set.
 function pickExtraPoints(m, pk) {
   if (!pk || m.status !== "finished" || (m.stage !== "SF" && m.stage !== "FINAL")) return { qualPts: 0, slPts: 0 };
+  if (!matchResult(m)) return { qualPts: 0, slPts: 0 };
   let qualPts = 0, slPts = 0;
-  if (pk.qual && m.qualifier && pk.qual === m.qualifier) qualPts = 8;
+  const qual = pk.qual === "A" || pk.qual === "B" ? pk.qual : (pk.pred === "A" || pk.pred === "B" ? pk.pred : null);
+  if (qual && m.qualifier && qual === m.qualifier) qualPts = 8;
   if (pk.sa !== "" && pk.sb !== "" && pk.sa != null && pk.sb != null &&
       Number(pk.sa) === m.scoreA && Number(pk.sb) === m.scoreB) slPts = 20;
   return { qualPts, slPts };
@@ -1984,7 +2004,8 @@ function TodayPage({ game, me, go }) {
         const lockAt = new Date(m.kickoff).getTime();
         const locked = now >= lockAt || m.status === "finished";
         const myPick = me ? game.picks[m.id]?.[me.id] : null;
-        const myLabel = myPick?.pred ? (myPick.pred === "A" ? a?.name : myPick.pred === "B" ? b?.name : "Draw") : null;
+        const myCall = m.stage === "SF" || m.stage === "FINAL" ? koCallOf(myPick) : myPick?.pred;
+        const myLabel = myCall ? (myCall === "A" ? a?.name : myCall === "B" ? b?.name : "Draw") : null;
         const isLive = m.live || (m.status !== "finished" && now >= new Date(m.kickoff).getTime() && now < new Date(m.kickoff).getTime() + 2.2 * 3600000);
         return (
           <div className={`match tap-match ${isLive ? "live-card" : ""}`} key={m.id} onClick={() => openMatchDetail(m)}>
@@ -2913,6 +2934,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
         const locked = baseLocked && !myOverride; // admin-granted exception unlocks for this player only
         const myPick = me ? game.picks[m.id]?.[me.id] : null;
         const res = matchResult(m);
+        const isKoDecider = m.stage === "SF" || m.stage === "FINAL";
         const ko = new Date(m.kickoff).getTime();
         const isLive = m.status !== "finished" && m.status !== "void" && (m.live || (now >= ko && now < ko + 2.2 * 3600000));
         const teamColourA = (COUNTRY_COLORS[a?.name] || ["#16c264"])[0];
@@ -2936,57 +2958,65 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
               <div className="pitch-team pitch-team-a">
                 <Flag name={a?.name} size={38} />
                 <span className="pitch-team-name">{a?.name}</span>
-                <button
-                  className={`pickbtn ${myPick?.pred === "A" ? "sel" : ""}`}
-                  disabled={locked || !me}
-                  onClick={() => setPick(m, { pred: "A" })}
-                >
-                  {myPick?.pred === "A" ? "✓ BACKED" : "BACK"}
-                </button>
+                {!isKoDecider && (
+                  <button
+                    className={`pickbtn ${myPick?.pred === "A" ? "sel" : ""}`}
+                    disabled={locked || !me}
+                    onClick={() => setPick(m, { pred: "A" })}
+                  >
+                    {myPick?.pred === "A" ? "✓ BACKED" : "BACK"}
+                  </button>
+                )}
               </div>
               <div className="pitch-centre">
                 {showScore
                   ? <div className="pitch-score bebas">{m.scoreA ?? "–"} : {m.scoreB ?? "–"}</div>
                   : <div className="pitch-time barlow">{fmtTime(m.kickoff)}</div>}
-                <button
-                  className={`pickbtn ${myPick?.pred === "D" ? "sel" : ""}`}
-                  disabled={locked || !me}
-                  onClick={() => setPick(m, { pred: "D" })}
-                >
-                  DRAW
-                </button>
+                {!isKoDecider && (
+                  <button
+                    className={`pickbtn ${myPick?.pred === "D" ? "sel" : ""}`}
+                    disabled={locked || !me}
+                    onClick={() => setPick(m, { pred: "D" })}
+                  >
+                    DRAW
+                  </button>
+                )}
                 {locked && <div className="pitch-lock barlow">🔒 LOCKED</div>}
               </div>
               <div className="pitch-team pitch-team-b">
                 <Flag name={b?.name} size={38} />
                 <span className="pitch-team-name">{b?.name}</span>
-                <button
-                  className={`pickbtn ${myPick?.pred === "B" ? "sel" : ""}`}
-                  disabled={locked || !me}
-                  onClick={() => setPick(m, { pred: "B" })}
-                >
-                  {myPick?.pred === "B" ? "✓ BACKED" : "BACK"}
-                </button>
+                {!isKoDecider && (
+                  <button
+                    className={`pickbtn ${myPick?.pred === "B" ? "sel" : ""}`}
+                    disabled={locked || !me}
+                    onClick={() => setPick(m, { pred: "B" })}
+                  >
+                    {myPick?.pred === "B" ? "✓ BACKED" : "BACK"}
+                  </button>
+                )}
               </div>
             </div>
             <div className="pitch-extra">
-            {(m.stage === "SF" || m.stage === "FINAL") && m.status !== "void" && (() => {
-              const qualHit = m.qualifier && myPick?.qual === m.qualifier;
+            {isKoDecider && m.status !== "void" && (() => {
+              const myCall = koCallOf(myPick);
+              const callPts = (STAGE_PTS[m.stage] || 0) + 8;
               const hasSl = myPick && myPick.sa !== "" && myPick.sa != null && myPick.sb !== "" && myPick.sb != null;
-              const slHit = hasSl && Number(myPick.sa) === m.scoreA && Number(myPick.sb) === m.scoreB;
+              const ex = pickExtraPoints(m, myPick);
               return (
                 <div style={{ marginTop: 10 }}>
-                  <div className="ps-label barlow muted">WHO GOES THROUGH · 8 PTS</div>
+                  <div className="ps-label barlow muted">WHO GOES THROUGH · {callPts} PTS</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <button className={`pickbtn ${myPick?.qual === "A" ? "sel" : ""}`} disabled={locked || !me}
-                      onClick={() => setPick(m, { qual: "A" })}>{a?.name} through</button>
-                    <button className={`pickbtn ${myPick?.qual === "B" ? "sel" : ""}`} disabled={locked || !me}
-                      onClick={() => setPick(m, { qual: "B" })}>{b?.name} through</button>
+                    <button className={`pickbtn ${myCall === "A" ? "sel" : ""}`} disabled={locked || !me}
+                      onClick={() => setPick(m, { pred: "A", qual: "A" })}>{myCall === "A" ? "✓ " : ""}{a?.name} through</button>
+                    <button className={`pickbtn ${myCall === "B" ? "sel" : ""}`} disabled={locked || !me}
+                      onClick={() => setPick(m, { pred: "B", qual: "B" })}>{myCall === "B" ? "✓ " : ""}{b?.name} through</button>
                   </div>
-                  {m.status === "finished" && myPick?.qual && (
-                    <div className="lockline" style={{ marginTop: 6, color: qualHit ? "#bdf3d2" : m.qualifier ? "#f1a0a7" : "var(--muted)" }}>
-                      {qualHit ? "✓ QUALIFIER CALLED · +8 PTS" : m.qualifier ? "✗ QUALIFIER MISSED · +0" : "QUALIFIER NOT SET YET"}
-                    </div>
+                  {m.status === "finished" && myCall && !res && (
+                    <div className="lockline" style={{ marginTop: 6, color: "var(--muted)" }}>LEVEL AFTER 90 — POINTS PENDING QUALIFIER</div>
+                  )}
+                  {m.status === "finished" && myCall && res && myCall !== res && (
+                    <div className="lockline" style={{ marginTop: 6, color: "#f1a0a7" }}>✗ THROUGH-CALL MISSED · +0</div>
                   )}
                   <div className="ps-label barlow muted" style={{ marginTop: 10 }}>EXACT 90-MIN SCORE · 20 PTS</div>
                   <div className="scoreline" style={{ marginTop: 4 }}>
@@ -2995,9 +3025,9 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
                     <span className="vs">:</span>
                     <input inputMode="numeric" disabled={locked || !me} value={myPick?.sb ?? ""}
                       aria-label={`${b?.name} exact score`} onChange={(e) => setPick(m, { sb: slDigit(e.target.value) })} />
-                    {m.status === "finished" && hasSl && (
-                      <span className="bebas" style={{ fontSize: 17, color: slHit ? "#bdf3d2" : "#f1a0a7" }}>
-                        {slHit ? "✓ +20" : "✗ +0"}
+                    {m.status === "finished" && hasSl && res && (
+                      <span className="bebas" style={{ fontSize: 17, color: ex.slPts > 0 ? "#bdf3d2" : "#f1a0a7" }}>
+                        {ex.slPts > 0 ? "✓ +20" : "✗ +0"}
                       </span>
                     )}
                   </div>
@@ -3006,9 +3036,11 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
             })()}
             {myOverride && baseLocked && <div className="lockline" style={{ color: "var(--gold-bright)" }}>🔓 Admin unlocked this for you — pick now</div>}
             {!locked && m.status !== "void" && !myOverride && <div className="lockline"><Countdown to={new Date(lockAt).toISOString()} /></div>}
-            {m.status === "finished" && myPick && myPick.pred === res && (
-              <div className="pitch-calledit">✓ CALLED IT · +{pickPoints(m, myPick)} PTS</div>
-            )}
+            {m.status === "finished" && myPick && (() => {
+              const ex = pickExtraPoints(m, myPick);
+              const tot = pickPoints(m, myPick) + ex.qualPts + ex.slPts;
+              return tot > 0 ? <div className="pitch-calledit">✓ CALLED IT · +{tot} PTS</div> : null;
+            })()}
             {locked && m.status !== "void" && (() => {
               const sp = pickSplit(game, m);
               if (sp.total === 0) return null;
@@ -3029,10 +3061,11 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
               <div className="others">
                 {game.players.map((p) => {
                   const pk = game.picks[m.id]?.[p.id];
-                  const lab = pk?.pred ? (pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : "Draw") : "—";
+                  const call = isKoDecider ? koCallOf(pk) : pk?.pred;
+                  const lab = call ? (call === "A" ? a?.name : call === "B" ? b?.name : "Draw") : "—";
                   const ex = pickExtraPoints(m, pk);
                   const pts = pickPoints(m, pk) + ex.qualPts + ex.slPts;
-                  const cls = m.status === "finished" && pk?.pred ? (pk.pred === res ? "chip ok" : "chip bad") : "chip";
+                  const cls = m.status === "finished" && call && res ? (call === res ? "chip ok" : "chip bad") : "chip";
                   return <span key={p.id} className={cls} style={{ cursor: "pointer" }} onClick={() => openProfile(p.id)}>{p.avatar} {p.name}: {lab}
                     {m.status === "finished" ? ` · +${pts}` : ""}</span>;
                 })}
@@ -3042,7 +3075,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
           </div>
         );
       })}
-      <div className="note">All kickoff times are shown in your own timezone, automatically. 90-min result: SF 13 · Final 18 — Qualifies: +8 — Exact score: +20. Earlier rounds: Group 3 · R32 5 · R16 8 · QF 10. Picks lock at kickoff. Miss the window and it's 0 — no catch-up.</div>
+      <div className="note">All kickoff times are shown in your own timezone, automatically. Semis & Final: pick who goes through — 21 pts on a semi, 26 on the final — plus +20 for the exact 90-min score. No draw option. Earlier rounds: Group 3 · R32 5 · R16 8 · QF 10. Picks lock at kickoff. Miss the window and it's 0 — no catch-up.</div>
     </div>
   );
 }
@@ -3549,7 +3582,8 @@ function LeaderboardPage({ game, meId }) {
               {game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id]).map((m) => {
                 const pk = game.picks[m.id][r.p.id];
                 const a = tById[m.teamA], b = tById[m.teamB];
-                const lab = pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : pk.pred === "D" ? "Draw" : "—";
+                const call = m.stage === "SF" || m.stage === "FINAL" ? koCallOf(pk) : pk.pred;
+                const lab = call === "A" ? a?.name : call === "B" ? b?.name : call === "D" ? "Draw" : "—";
                 const ex = pickExtraPoints(m, pk);
                 const pts = pickPoints(m, pk) + ex.qualPts + ex.slPts;
                 return <div key={m.id} style={{ padding: "3px 0", color: pts > 0 ? "#bdf3d2" : "#f1a0a7" }}>
