@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v77";
+const APP_VERSION = "v78";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -1982,7 +1982,7 @@ function TodayPage({ game, me, go }) {
         <div className="panel muted" style={{ marginTop: 8 }}>No matches on this day. Swipe the dates above to find fixtures.</div>
       ) : todays.map((m) => {
         const a = tById[m.teamA], b = tById[m.teamB];
-        const lockAt = new Date(m.kickoff).getTime() - 7200000;
+        const lockAt = new Date(m.kickoff).getTime();
         const locked = now >= lockAt || m.status === "finished";
         const myPick = me ? game.picks[m.id]?.[me.id] : null;
         const myLabel = myPick?.pred ? (myPick.pred === "A" ? a?.name : myPick.pred === "B" ? b?.name : "Draw") : null;
@@ -2612,7 +2612,7 @@ function HomePage({ game, me, go, fxStatus, onRefresh }) {
   const leader = rows[0];
   const todayStr = new Date().toDateString();
   const todays = game.matches.filter((m) => m.status !== "void" && new Date(m.kickoff).toDateString() === todayStr);
-  const nextLock = todays.filter((m) => m.status !== "finished").map((m) => new Date(m.kickoff).getTime() - 7200000).filter((t) => t > now).sort((a, b) => a - b)[0];
+  const nextLock = todays.filter((m) => m.status !== "finished").map((m) => new Date(m.kickoff).getTime()).filter((t) => t > now).sort((a, b) => a - b)[0];
   const liveNow = game.matches.filter((m) => m.live).length;
   const mover = biggestMover(game);
   const curStage = currentStage(game);
@@ -2889,11 +2889,11 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
       onPickCelebrate(t);
     }
     return mutate((g) => {
-    // hard guard: no pick changes after lock — UNLESS the admin granted this
-    // player an explicit override for this match. The override never changes
-    // the global deadline; it's a per-player, per-match exception.
+    // hard guard: no pick changes after lock (kickoff) — UNLESS the admin
+    // granted this player an explicit override for this match. The override
+    // never changes the global deadline; it's a per-player, per-match exception.
     const allowed = !!(g.overrides?.[m.id]?.[me.id]);
-    if (!allowed && Date.now() >= new Date(m.kickoff).getTime() - 7200000) return;
+    if (!allowed && Date.now() >= new Date(m.kickoff).getTime()) return;
     if (!g.picks[m.id]) g.picks[m.id] = {};
     const cur = g.picks[m.id][me.id] || { pred: null, sa: "", sb: "", at: Date.now() };
     g.picks[m.id][me.id] = { ...cur, ...patch, at: Date.now() };
@@ -2908,7 +2908,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
       {matches.length === 0 && <div className="panel muted">No matches on this day — swipe the dates above.</div>}
       {matches.map((m) => {
         const a = tById[m.teamA], b = tById[m.teamB];
-        const lockAt = new Date(m.kickoff).getTime() - 7200000; // locks 2 hours before kickoff
+        const lockAt = new Date(m.kickoff).getTime(); // locks at kickoff
         const myOverride = me ? hasOverride(m.id, me.id) : false;
         const baseLocked = now >= lockAt || m.status === "finished" || m.status === "void";
         const locked = baseLocked && !myOverride; // admin-granted exception unlocks for this player only
@@ -3043,7 +3043,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
           </div>
         );
       })}
-      <div className="note">All kickoff times are shown in your own timezone, automatically. 90-min result: SF 13 · Final 18 — Qualifies: +8 — Exact score: +20. Earlier rounds: Group 3 · R32 5 · R16 8 · QF 10. Picks lock 2h before kickoff. Miss the window and it's 0 — no catch-up.</div>
+      <div className="note">All kickoff times are shown in your own timezone, automatically. 90-min result: SF 13 · Final 18 — Qualifies: +8 — Exact score: +20. Earlier rounds: Group 3 · R32 5 · R16 8 · QF 10. Picks lock at kickoff. Miss the window and it's 0 — no catch-up.</div>
     </div>
   );
 }
@@ -3787,7 +3787,7 @@ function AdminOverridePanel({ game, mutate }) {
   const now = Date.now();
   // matches that are past their lock (the only ones needing an exception),
   // most recent first, limited to keep it tidy
-  const lockedMatches = game.matches.filter((m) => m.status !== "void" && now >= new Date(m.kickoff).getTime() - 7200000)
+  const lockedMatches = game.matches.filter((m) => m.status !== "void" && now >= new Date(m.kickoff).getTime())
     .sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, 30);
   const player = game.players.find((p) => p.id === pid);
 
@@ -3807,7 +3807,7 @@ function AdminOverridePanel({ game, mutate }) {
   return (
     <div className="panel">
       <div className="note" style={{ marginTop: 0 }}>
-        Grant a specific player a deadline exception, or set their pick yourself — for genuine "I had a reason" cases. This does <b>not</b> change the normal 2-hour deadline for anyone else; it's a per-player, per-match override you control.
+        Grant a specific player a deadline exception, or set their pick yourself — for genuine "I had a reason" cases. This does <b>not</b> change the normal at-kickoff deadline for anyone else; it's a per-player, per-match override you control.
       </div>
       <label className="barlow muted" style={{ fontSize: 12 }}>Player
         <select style={{ width: "100%", marginTop: 4 }} value={pid} onChange={(e) => setPid(e.target.value)}>

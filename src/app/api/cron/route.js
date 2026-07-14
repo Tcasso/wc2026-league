@@ -52,18 +52,17 @@ export async function GET() {
   const tById = Object.fromEntries((game.teams || []).map((t) => [t.id, t]));
   const results = { locks: 0, finals: 0, shame: 0 };
 
-  // 1) PICKS LOCKING SOON — within the next 2h15m, not already alerted.
-  // (lock is 2h before kickoff; we alert ~15 min before the lock.)
+  // 1) PICKS LOCKING SOON — picks lock AT kickoff; remind within the last
+  // hour before kickoff, not already alerted.
   for (const m of game.matches || []) {
     if (m.status === "void" || m.status === "finished") continue;
     const ko = new Date(m.kickoff).getTime();
-    const lockAt = ko - 2 * 3600000;
-    const minsToLock = (lockAt - now) / 60000;
-    if (minsToLock > 0 && minsToLock <= 20) {
+    const minsToLock = (ko - now) / 60000;
+    if (minsToLock > 0 && minsToLock <= 60) {
       const id = "lock:" + m.id;
       if (!(await alreadySent(id))) {
         const a = tById[m.teamA]?.name || "TBA", b = tById[m.teamB]?.name || "TBA";
-        await sendToAll("⏰ Picks lock soon!", `${a} v ${b} — get your pick in before it locks.`, "/picks");
+        await sendToAll("⏰ Picks lock at kickoff!", `${a} v ${b} — get your pick in before the whistle.`, "/picks");
         await markSent(id);
         results.locks++;
       }
