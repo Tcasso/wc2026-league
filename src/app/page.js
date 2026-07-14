@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v78";
+const APP_VERSION = "v79";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -661,10 +661,9 @@ function gbMatches(pickName, winnerName) {
     wt.includes(pt[pt.length - 1]) || pt.includes(wt[wt.length - 1]);
 }
 const PRIZES = [
-  ["champion", "🥇", "Overall Champion", 0.40, "Highest total score"],
+  ["champion", "🥇", "Overall Champion", 0.50, "Highest total score"],
   ["group", "📊", "Group Stage", 0.15, "Most group-stage daily pts"],
   ["knockout", "⚔️", "Knockout", 0.20, "Knockout pts incl. qualify + scoreline"],
-  ["last", "🪦", "Last Place", 0.10, "Lowest total score"],
   ["underdog", "🐉", "Underdog", 0.15, "Underdog went furthest"],
 ];
 
@@ -1309,7 +1308,7 @@ function prizeLeaders(game) {
     (game.underdog[a.p.id].at - game.underdog[b.p.id].at));
   return {
     champion: by((r) => r.total), group: by((r) => r.groupDaily),
-    knockout: by((r) => r.knockout), last: by((r) => r.total, 1),
+    knockout: by((r) => r.knockout),
     underdog: udSorted[0] || null,
   };
 }
@@ -3563,7 +3562,7 @@ function LeaderboardPage({ game, meId }) {
       ))}
       {rows.length === 0 && <div className="panel muted">No players yet.</div>}
       {rows.length > 0 && tab === "overall" && (
-        <div className="note">🪦 {rows[rows.length - 1].p.name} is holding the wooden spoon... but at least they're getting paid.</div>
+        <div className="note">🪦 {rows[rows.length - 1].p.name} is holding the wooden spoon... and no, it doesn't pay anymore.</div>
       )}
     </div>
   );
