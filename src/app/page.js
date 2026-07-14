@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v80";
+const APP_VERSION = "v81";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -1196,9 +1196,10 @@ async function enablePush(playerId, playerName) {
 /* ── scoring engine ─────────────────────────────────────────── */
 function matchResult(m) {
   if (m.status !== "finished") return null;
-  if (m.stage === "SF" || m.stage === "FINAL") {
-    // SF/Final are scored on WHO GOES THROUGH — never a draw. A level 90-min
-    // score is undecidable (null) until the qualifier lands (admin or API).
+  if (m.stage !== "GROUP") {
+    // Every knockout round is scored on WHO GOES THROUGH — draws don't exist.
+    // A level 90-min score is undecidable (null) until the qualifier lands
+    // (API winner or admin toggle); pens games pay the qualifier's backers.
     if (m.qualifier === "A" || m.qualifier === "B") return m.qualifier;
     return m.scoreA > m.scoreB ? "A" : m.scoreA < m.scoreB ? "B" : null;
   }
@@ -2934,7 +2935,8 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
         const locked = baseLocked && !myOverride; // admin-granted exception unlocks for this player only
         const myPick = me ? game.picks[m.id]?.[me.id] : null;
         const res = matchResult(m);
-        const isKoDecider = m.stage === "SF" || m.stage === "FINAL";
+        const isKo = m.stage !== "GROUP"; // knockouts: no draw option, ever
+        const isKoDecider = m.stage === "SF" || m.stage === "FINAL"; // merged through-call row
         const ko = new Date(m.kickoff).getTime();
         const isLive = m.status !== "finished" && m.status !== "void" && (m.live || (now >= ko && now < ko + 2.2 * 3600000));
         const teamColourA = (COUNTRY_COLORS[a?.name] || ["#16c264"])[0];
@@ -2972,7 +2974,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
                 {showScore
                   ? <div className="pitch-score bebas">{m.scoreA ?? "–"} : {m.scoreB ?? "–"}</div>
                   : <div className="pitch-time barlow">{fmtTime(m.kickoff)}</div>}
-                {!isKoDecider && (
+                {!isKo && (
                   <button
                     className={`pickbtn ${myPick?.pred === "D" ? "sel" : ""}`}
                     disabled={locked || !me}
@@ -3053,7 +3055,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
                     {sp.D > 0 && <span className="ps-seg ps-d" style={{ width: `${pct(sp.D)}%` }} title={`Draw ${pct(sp.D)}%`}>{pct(sp.D)}%</span>}
                     {sp.B > 0 && <span className="ps-seg ps-b" style={{ width: `${pct(sp.B)}%` }} title={`${b?.name} ${pct(sp.B)}%`}>{pct(sp.B)}%</span>}
                   </div>
-                  <div className="ps-key barlow"><span>{a?.name}</span><span>Draw</span><span>{b?.name}</span></div>
+                  <div className="ps-key barlow"><span>{a?.name}</span><span>{isKo ? "" : "Draw"}</span><span>{b?.name}</span></div>
                 </div>
               );
             })()}
@@ -3075,7 +3077,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
           </div>
         );
       })}
-      <div className="note">All kickoff times are shown in your own timezone, automatically. Semis & Final: pick who goes through — 21 pts on a semi, 26 on the final — plus +20 for the exact 90-min score. No draw option. Earlier rounds: Group 3 · R32 5 · R16 8 · QF 10. Picks lock at kickoff. Miss the window and it's 0 — no catch-up.</div>
+      <div className="note">All kickoff times are shown in your own timezone, automatically. Knockout picks = who goes through (pens count). No draws. Group games stay win/draw/lose. Points: Group 3 · R32 5 · R16 8 · QF 10 · SF 21 · Final 26 for the through-call, +20 for the exact 90-min score on SF/Final. Picks lock at kickoff. Miss the window and it's 0 — no catch-up.</div>
     </div>
   );
 }
@@ -3664,7 +3666,7 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
     mutate((g) => {
       const mm = g.matches.find((x) => x.id === m.id);
       mm.scoreA = Number(sa); mm.scoreB = Number(sb); mm.status = "finished";
-      if (mm.stage === "SF" || mm.stage === "FINAL") {
+      if (mm.stage !== "GROUP") {
         // 90-min winner decides the qualifier automatically; a level score
         // needs the admin's A/B call (extra time / penalties).
         mm.qualifier = Number(sa) > Number(sb) ? "A" : Number(sb) > Number(sa) ? "B" : (qual || mm.qualifier || null);
@@ -3936,7 +3938,7 @@ function AdminMegaPanel({ game, mutate }) {
   const wouldScore = gbWinner.trim()
     ? game.players.filter((p) => gbMatches(game.goldenBoot?.[p.id]?.player, gbWinner.trim()))
     : [];
-  const sfFinal = game.matches.filter((m) => (m.stage === "SF" || m.stage === "FINAL") && m.status !== "void")
+  const sfFinal = game.matches.filter((m) => m.stage !== "GROUP" && m.status !== "void")
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
   const setQualifier = (mId, q) => mutate((g) => {
     const mm = g.matches.find((x) => x.id === mId);
@@ -3987,8 +3989,8 @@ function AdminMegaPanel({ game, mutate }) {
       </div>
 
       <div className="panel">
-        <div className="barlow muted" style={{ fontSize: 12, marginBottom: 6 }}>Qualifier overrides — who went through (SF & Final)</div>
-        {sfFinal.length === 0 && <div className="muted" style={{ fontSize: 13 }}>No SF/Final fixtures loaded yet.</div>}
+        <div className="barlow muted" style={{ fontSize: 12, marginBottom: 6 }}>Qualifier overrides — who went through (all knockouts)</div>
+        {sfFinal.length === 0 && <div className="muted" style={{ fontSize: 13 }}>No knockout fixtures loaded yet.</div>}
         {sfFinal.map((m) => {
           const a = tById[m.teamA], b = tById[m.teamB];
           return (
@@ -4001,7 +4003,7 @@ function AdminMegaPanel({ game, mutate }) {
             </div>
           );
         })}
-        <div className="note">The qualifier pays the +8 "who goes through" picks and — on the Final — decides the Final 4 champion when the 90-min score is level. Fixture syncs fill it from the API when it's empty; a value you set here is never overwritten by a sync. If you flip it after a result was saved, also double-check the team's "furthest stage" in the Teams panel — that only ever moves forward automatically.</div>
+        <div className="note">The qualifier IS the knockout result — every knockout pick pays on who advances (pens count), and on the Final it also decides the Final 4 champion. Fixture syncs fill it from the API when it's empty; a value you set here is never overwritten by a sync. If you flip it after a result was saved, also double-check the team's "furthest stage" in the Teams panel — that only ever moves forward automatically.</div>
       </div>
     </>
   );
@@ -4011,7 +4013,7 @@ function AdminResultRow({ m, a, b, onSave, onVoid, onDelete }) {
   const [sa, setSa] = useState(m.scoreA ?? "");
   const [sb, setSb] = useState(m.scoreB ?? "");
   const [qual, setQual] = useState(m.qualifier || "");
-  const isKoDecider = m.stage === "SF" || m.stage === "FINAL";
+  const isKoDecider = m.stage !== "GROUP";
   const level = sa !== "" && sb !== "" && Number(sa) === Number(sb);
   // auto-select the higher scorer; only a level 90-min score needs the toggle
   const effQual = !isKoDecider ? "" : sa !== "" && sb !== "" && !level ? (Number(sa) > Number(sb) ? "A" : "B") : qual;
@@ -4036,7 +4038,7 @@ function AdminResultRow({ m, a, b, onSave, onVoid, onDelete }) {
       <button className="btn btn-ghost" style={{ padding: "6px 12px" }} onClick={onVoid}>{m.status === "void" ? "Unvoid" : "Void"}</button>
       <button className="btn btn-danger" style={{ padding: "6px 12px" }} onClick={onDelete}>Delete</button>
       {m.status === "finished" && <span className="chip ok">FT {m.scoreA}–{m.scoreB}{isKoDecider && m.qualifier ? ` · ${m.qualifier === "A" ? a?.name : b?.name} through` : ""}</span>}
-      {isKoDecider && <div className="note" style={{ width: "100%", marginTop: 4 }}>SF/Final: enter the <b>90-minute</b> score (that's what result + exact-score picks pay on). The winner auto-fills "who went through"; if the 90-min score is level you must set it yourself — it decides the +8 qualifier picks{m.stage === "FINAL" ? " and the Final 4 champion" : ""}.</div>}
+      {isKoDecider && <div className="note" style={{ width: "100%", marginTop: 4 }}>Knockouts: enter the <b>90-minute</b> score. The winner auto-fills "who went through"; if the 90-min score is level you must set it yourself — knockout picks pay on who advances{m.stage === "SF" || m.stage === "FINAL" ? ", plus the exact-score pick" : ""}{m.stage === "FINAL" ? ", and it decides the Final 4 champion" : ""}.</div>}
     </div>
   );
 }
