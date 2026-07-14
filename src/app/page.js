@@ -6,13 +6,13 @@ import { createClient } from "@supabase/supabase-js";
 
 /* ════════════════════════════════════════════════════════════════
    WORLD CUP 2026 — PRIVATE PREDICTION LEAGUE  (Vercel + Supabase)
-   Daily picks · Underdog system · Final 8 draft · Live pot
+   Daily picks · Underdog system · Final 4 & Golden Boot · Live pot
    Shared league: all data lives in one Supabase row, so everyone
    sees the same game. Pick your player in the top bar.
    ════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = "wc26-league-v1";
-const APP_VERSION = "v76";
+const APP_VERSION = "v77";
 const OWNER_NAME = "rosh";
 
 // Supabase: keys come from Vercel environment variables.
@@ -640,11 +640,30 @@ const UD_MILESTONES = [
 ];
 const UD_VALUE = Object.fromEntries(UD_MILESTONES.map(([k, , v]) => [k, v]));
 const UD_RANK = { none: 0, out: 0, qualified: 1, r16: 2, qf: 3, sf: 4, final: 5, won: 6 };
-const F8_VALUE = { qf: 10, sf: 20, final: 35, won: 50 };
+const FINAL4_TEAMS = ["France", "Argentina", "Spain", "England"];
+const FINAL4_VALUE = { France: 5, Argentina: 10, Spain: 15, England: 20 };
+const FINAL4_CONSOLATION = { France: 3, Argentina: 5, Spain: 8, England: 10 };
+function gbValue(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("mbapp") || n.includes("messi")) return 8;
+  if (n.includes("bellingham") || n.includes("kane")) return 12;
+  return 20;
+}
+const gbNorm = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function gbMatches(pickName, winnerName) {
+  if (!pickName || !winnerName) return false;
+  const pt = gbNorm(pickName).split(/\s+/).filter(Boolean);
+  const wt = gbNorm(winnerName).split(/\s+/).filter(Boolean);
+  if (!pt.length || !wt.length) return false;
+  // whole-token surname match in either direction ("Mbappé" ↔ "Kylian Mbappé")
+  // — a raw substring check would let "Son" match inside "Jackson"
+  return pt[pt.length - 1] === wt[wt.length - 1] ||
+    wt.includes(pt[pt.length - 1]) || pt.includes(wt[wt.length - 1]);
+}
 const PRIZES = [
   ["champion", "🥇", "Overall Champion", 0.40, "Highest total score"],
   ["group", "📊", "Group Stage", 0.15, "Most group-stage daily pts"],
-  ["knockout", "⚔️", "Knockout", 0.20, "Knockout daily + Final 8 pts"],
+  ["knockout", "⚔️", "Knockout", 0.20, "Knockout pts incl. qualify + scoreline"],
   ["last", "🪦", "Last Place", 0.10, "Lowest total score"],
   ["underdog", "🐉", "Underdog", 0.15, "Underdog went furthest"],
 ];
@@ -742,8 +761,8 @@ function colorsFor(name) {
 }
 
 const DEFAULT_GAME = {
-  config: { groupName: "PRIVATE LEAGUE", buyIn: 20, adminPass: "wc2026", final8Open: false, currency: "S$" },
-  players: [], teams: [], matches: [], picks: {}, underdog: {}, final8: {}, shame: {},
+  config: { groupName: "PRIVATE LEAGUE", buyIn: 20, adminPass: "wc2026", currency: "S$" },
+  players: [], teams: [], matches: [], picks: {}, underdog: {}, final8: {}, final4: {}, goldenBoot: {}, shame: {},
 };
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -966,7 +985,10 @@ async function loadGameStrict() {
       .from("leagues").select("data").eq("id", STORE_KEY).maybeSingle();
     if (error) { lastLoadError = "Database error: " + (error.message || JSON.stringify(error)); return null; }
     lastLoadError = "";
-    if (data && data.data) return { ...DEFAULT_GAME, ...data.data };
+    // Deep-clone the defaults: a shallow spread would hand out DEFAULT_GAME's
+    // own nested objects, and the first write to a key the stored row lacks
+    // (e.g. final4 on an old row) would mutate the shared default in place.
+    if (data && data.data) return { ...JSON.parse(JSON.stringify(DEFAULT_GAME)), ...data.data };
     // Row genuinely doesn't exist yet (fresh league) — safe to start clean.
     return JSON.parse(JSON.stringify(DEFAULT_GAME));
   } catch (e) { lastLoadError = "Can't reach Supabase: " + (e?.message || "network failure"); return null; }
@@ -1087,6 +1109,9 @@ function mergeFixtures(g, apiMatches) {
     // Knockout games with undecided teams come through blank — skip them.
     // They merge in automatically once the real teams are known.
     if (!am.homeTeam?.name || !am.awayTeam?.name) continue;
+    // The bronze final isn't part of the league — without this it would sync
+    // as a 3-pt GROUP match and pollute the settled group-stage prize.
+    if (String(am.stage || "").toUpperCase().includes("THIRD")) continue;
     const nameA = am.homeTeam.name, nameB = am.awayTeam.name;
     let tA = g.teams.find((t) => t.name === nameA);
     if (!tA) { tA = { id: uid(), name: nameA, flag: flagFor(nameA), eligible: true, furthest: "none", wonAll3: false }; g.teams.push(tA); }
@@ -1105,16 +1130,32 @@ function mergeFixtures(g, apiMatches) {
       // that synced under an old/broken mapping (e.g. R32 stored as GROUP) self-correct.
       existing.apiStage = am.stage;
       existing.stage = stage;
-      // carry the score for live AND finished matches (live = running score)
-      if ((status === "finished" || status === "live") && am.score?.fullTime) {
-        if (am.score.fullTime.home != null) existing.scoreA = am.score.fullTime.home;
-        if (am.score.fullTime.away != null) existing.scoreB = am.score.fullTime.away;
+      // carry the score for live AND finished matches (live = running score).
+      // Finished knockout games use the 90-minute score (regularTime) — that's
+      // what result + exact-scoreline picks are judged on; extra time / pens
+      // decide only the qualifier.
+      const isKo = stage !== "GROUP";
+      const src = status === "finished" && isKo && am.score?.regularTime ? am.score.regularTime : am.score?.fullTime;
+      if ((status === "finished" || status === "live") && src) {
+        if (src.home != null) existing.scoreA = src.home;
+        if (src.away != null) existing.scoreB = src.away;
+      }
+      // only fill a missing qualifier — never overwrite an admin correction
+      if (status === "finished" && isKo && existing.qualifier == null) {
+        if (am.score?.winner === "HOME_TEAM") existing.qualifier = "A";
+        else if (am.score?.winner === "AWAY_TEAM") existing.qualifier = "B";
       }
       advanceFurthestOnResult(g, existing);
     } else {
+      const isKo = stage !== "GROUP";
+      const src = status === "finished" && isKo && am.score?.regularTime ? am.score.regularTime : am.score?.fullTime;
       const nm = { id: uid(), apiId: String(am.id), teamA: tA.id, teamB: tB.id,
         kickoff: am.utcDate, stage, apiStage: am.stage, status: status === "live" ? "scheduled" : status, live: status === "live",
-        scoreA: am.score?.fullTime?.home ?? null, scoreB: am.score?.fullTime?.away ?? null };
+        scoreA: src?.home ?? null, scoreB: src?.away ?? null };
+      if (status === "finished" && isKo) {
+        if (am.score?.winner === "HOME_TEAM") nm.qualifier = "A";
+        else if (am.score?.winner === "AWAY_TEAM") nm.qualifier = "B";
+      }
       g.matches.push(nm);
       advanceFurthestOnResult(g, nm);
     }
@@ -1177,37 +1218,79 @@ function bumpFurthest(g, teamId, milestone) {
   if (team && (UD_RANK[milestone] || 0) > (UD_RANK[team.furthest] || 0)) team.furthest = milestone;
 }
 // `furthest` only ever moves forward (UD_RANK guards against going backwards).
-// Draws decided on penalties skip the winner bump — the winner can't be
-// derived from the full-time score.
+// A 90-minute draw uses m.qualifier (extra time / penalties winner) when set;
+// without it the winner bump is skipped.
 function advanceFurthestOnResult(g, m) {
   const inRound = KO_PLAY_MILESTONE[m.stage];
   if (!inRound) return;
   bumpFurthest(g, m.teamA, inRound);
   bumpFurthest(g, m.teamB, inRound);
   if (m.status !== "finished" || m.scoreA == null || m.scoreB == null) return;
-  const winnerId = m.scoreA > m.scoreB ? m.teamA : m.scoreB > m.scoreA ? m.teamB : null;
+  const winnerId = m.scoreA > m.scoreB ? m.teamA : m.scoreB > m.scoreA ? m.teamB
+    : m.qualifier === "A" ? m.teamA : m.qualifier === "B" ? m.teamB : null;
   if (winnerId) bumpFurthest(g, winnerId, KO_WIN_MILESTONE[m.stage]);
 }
 
+// Champion / runner-up of the tournament, from the finished FINAL: decided by
+// the 90-min score when not level, otherwise by the qualifier field (ET/pens).
+function finalOutcome(game) {
+  const finalMatch = game.matches.find((m) => m.stage === "FINAL" && m.status === "finished");
+  if (!finalMatch) return null;
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const a = tById[finalMatch.teamA], b = tById[finalMatch.teamB];
+  let champName = null, runnerName = null;
+  if (finalMatch.scoreA !== finalMatch.scoreB) {
+    champName = finalMatch.scoreA > finalMatch.scoreB ? a?.name : b?.name;
+    runnerName = finalMatch.scoreA > finalMatch.scoreB ? b?.name : a?.name;
+  } else if (finalMatch.qualifier) {
+    champName = finalMatch.qualifier === "A" ? a?.name : b?.name;
+    runnerName = finalMatch.qualifier === "A" ? b?.name : a?.name;
+  }
+  return { finalMatch, champName, runnerName };
+}
+
+// SF/FINAL pick extensions for one finished match: qualifier call (+8) and
+// exact 90-min scoreline (+20). Stack on top of the result pick.
+function pickExtraPoints(m, pk) {
+  if (!pk || m.status !== "finished" || (m.stage !== "SF" && m.stage !== "FINAL")) return { qualPts: 0, slPts: 0 };
+  let qualPts = 0, slPts = 0;
+  if (pk.qual && m.qualifier && pk.qual === m.qualifier) qualPts = 8;
+  if (pk.sa !== "" && pk.sb !== "" && pk.sa != null && pk.sb != null &&
+      Number(pk.sa) === m.scoreA && Number(pk.sb) === m.scoreB) slPts = 20;
+  return { qualPts, slPts };
+}
+
 function computeStandings(game) {
-  const { players, matches, picks, underdog, final8, teams } = game;
+  const { players, matches, picks, underdog, teams } = game;
   const tById = Object.fromEntries(teams.map((t) => [t.id, t]));
+  const fo = finalOutcome(game);
+  const has = (n, k) => (n || "").toLowerCase().includes((k || "").toLowerCase());
   return players.map((p) => {
-    let daily = 0, groupDaily = 0, koDaily = 0;
+    let daily = 0, groupDaily = 0, koDaily = 0, qualPts = 0, slPts = 0;
     for (const m of matches) {
       const pk = picks[m.id]?.[p.id];
-      const pts = pickPoints(m, pk);
+      const extra = pickExtraPoints(m, pk);
+      qualPts += extra.qualPts; slPts += extra.slPts;
+      // qual + scoreline points fold into the daily/knockout buckets so the
+      // knockout prize keeps working — total must NOT add them again.
+      const pts = pickPoints(m, pk) + extra.qualPts + extra.slPts;
       daily += pts;
       if (m.stage === "GROUP") groupDaily += pts; else koDaily += pts;
     }
     const udTeam = underdog[p.id] ? tById[underdog[p.id].teamId] : null;
     const udPts = udTeam ? teamUdPts(udTeam) : 0;
     const udGroupPts = udTeam ? teamGroupUdPts(udTeam) : 0;
-    const f8Team = final8[p.id] ? tById[final8[p.id].teamId] : null;
-    const f8Pts = f8Team ? (F8_VALUE[f8Team.furthest] || 0) : 0;
+    const f4 = game.final4?.[p.id] || null;
+    let f4Pts = 0;
+    if (f4 && fo) {
+      if (fo.champName && has(fo.champName, f4.team)) f4Pts = FINAL4_VALUE[f4.team] || 0;
+      else if (fo.runnerName && has(fo.runnerName, f4.team)) f4Pts = FINAL4_CONSOLATION[f4.team] || 0;
+    }
+    const gb = game.goldenBoot?.[p.id] || null;
+    const gbPts = gb && game.goldenBootWinner && gbMatches(gb.player, game.goldenBootWinner) ? gbValue(gb.player) : 0;
     const adjust = Number(p.adjust) || 0; // manual admin points (late joiners, corrections)
-    return { p, daily, groupDaily, koDaily, udTeam, udPts, udGroupPts, f8Team, f8Pts, adjust,
-      knockout: koDaily + f8Pts, total: daily + udPts + f8Pts + adjust };
+    return { p, daily, groupDaily, koDaily, qualPts, slPts, udTeam, udPts, udGroupPts, f4, f4Pts, gb, gbPts, adjust,
+      knockout: koDaily, total: daily + udPts + f4Pts + gbPts + adjust };
   });
 }
 function pickOrder(game) {
@@ -1274,7 +1357,7 @@ function CountUp({ value, decimals = 0, duration = 900 }) {
 // Current consecutive-correct-picks streak for a player
 // Form trail: last N finished picks as W/L (does NOT affect scoring)
 function formTrail(game, playerId, n = 5) {
-  const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[playerId])
+  const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[playerId]?.pred)
     .sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, n);
   return fin.map((m) => game.picks[m.id][playerId].pred === matchResult(m) ? "W" : "L").reverse();
 }
@@ -1303,7 +1386,7 @@ function headToHead(game, pidA, pidB) {
   for (const m of game.matches) {
     if (m.status !== "finished") continue;
     const pa = game.picks[m.id]?.[pidA], pb = game.picks[m.id]?.[pidB];
-    if (!pa || !pb) continue;
+    if (!pa?.pred || !pb?.pred) continue;
     both++;
     const res = matchResult(m);
     const aRight = pa.pred === res, bRight = pb.pred === res;
@@ -1348,7 +1431,7 @@ function streakFor(game, playerId) {
   let s = 0;
   for (let i = fin.length - 1; i >= 0; i--) {
     const pk = game.picks[fin[i].id]?.[playerId];
-    if (!pk) continue;
+    if (!pk?.pred) continue;
     if (pk.pred === matchResult(fin[i])) s++; else break;
   }
   return s;
@@ -1902,7 +1985,7 @@ function TodayPage({ game, me, go }) {
         const lockAt = new Date(m.kickoff).getTime() - 7200000;
         const locked = now >= lockAt || m.status === "finished";
         const myPick = me ? game.picks[m.id]?.[me.id] : null;
-        const myLabel = myPick ? (myPick.pred === "A" ? a?.name : myPick.pred === "B" ? b?.name : "Draw") : null;
+        const myLabel = myPick?.pred ? (myPick.pred === "A" ? a?.name : myPick.pred === "B" ? b?.name : "Draw") : null;
         const isLive = m.live || (m.status !== "finished" && now >= new Date(m.kickoff).getTime() && now < new Date(m.kickoff).getTime() + 2.2 * 3600000);
         return (
           <div className={`match tap-match ${isLive ? "live-card" : ""}`} key={m.id} onClick={() => openMatchDetail(m)}>
@@ -1917,7 +2000,7 @@ function TodayPage({ game, me, go }) {
               <div className="team"><span className="fl"><Flag name={b?.name} size={22} /></span><span className="nm">{b?.name}</span></div>
             </div>
             <div className="lockline" style={{ marginTop: 8 }}>
-              {myPick ? <span style={{ color: "var(--gold-bright)" }}>Your pick: {myLabel}</span>
+              {myLabel ? <span style={{ color: "var(--gold-bright)" }}>Your pick: {myLabel}</span>
                 : locked ? <span style={{ color: "var(--danger)" }}>Picks locked — you didn't pick</span>
                 : <span>Tap a match for line-ups · pick on the Picks tab</span>}
             </div>
@@ -2002,7 +2085,7 @@ function StatsPage({ game, me, mutate }) {
     let s = 0;
     for (let i = fin.length - 1; i >= 0; i--) {
       const pk = game.picks[fin[i].id]?.[pid];
-      if (!pk) continue;
+      if (!pk?.pred) continue;
       if (pk.pred !== matchResult(fin[i])) s++; else break;
     }
     return s;
@@ -2295,7 +2378,7 @@ function WarRoom({ game, me, mutate, onRefresh }) {
             <div className="war-picks">
               {game.players.map((p) => {
                 const pk = game.picks[m.id]?.[p.id];
-                if (!pk) return null;
+                if (!pk?.pred) return null;
                 const res = matchResult(m);
                 const winning = pk.pred === res;
                 const lab = pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : "Draw";
@@ -2797,6 +2880,8 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
     }
   };
 
+  // exact-scoreline inputs accept a single digit 0–9 ('' clears)
+  const slDigit = (v) => { const d = String(v).replace(/\D/g, "").slice(-1); return d === "" ? "" : Number(d); };
   const setPick = (m, patch) => {
     const overridden = me && hasOverride(m.id, me.id);
     if (patch.pred && onPickCelebrate) {
@@ -2886,6 +2971,40 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
               </div>
             </div>
             <div className="pitch-extra">
+            {(m.stage === "SF" || m.stage === "FINAL") && m.status !== "void" && (() => {
+              const qualHit = m.qualifier && myPick?.qual === m.qualifier;
+              const hasSl = myPick && myPick.sa !== "" && myPick.sa != null && myPick.sb !== "" && myPick.sb != null;
+              const slHit = hasSl && Number(myPick.sa) === m.scoreA && Number(myPick.sb) === m.scoreB;
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div className="ps-label barlow muted">WHO GOES THROUGH · 8 PTS</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <button className={`pickbtn ${myPick?.qual === "A" ? "sel" : ""}`} disabled={locked || !me}
+                      onClick={() => setPick(m, { qual: "A" })}>{a?.name} through</button>
+                    <button className={`pickbtn ${myPick?.qual === "B" ? "sel" : ""}`} disabled={locked || !me}
+                      onClick={() => setPick(m, { qual: "B" })}>{b?.name} through</button>
+                  </div>
+                  {m.status === "finished" && myPick?.qual && (
+                    <div className="lockline" style={{ marginTop: 6, color: qualHit ? "#bdf3d2" : m.qualifier ? "#f1a0a7" : "var(--muted)" }}>
+                      {qualHit ? "✓ QUALIFIER CALLED · +8 PTS" : m.qualifier ? "✗ QUALIFIER MISSED · +0" : "QUALIFIER NOT SET YET"}
+                    </div>
+                  )}
+                  <div className="ps-label barlow muted" style={{ marginTop: 10 }}>EXACT 90-MIN SCORE · 20 PTS</div>
+                  <div className="scoreline" style={{ marginTop: 4 }}>
+                    <input inputMode="numeric" disabled={locked || !me} value={myPick?.sa ?? ""}
+                      aria-label={`${a?.name} exact score`} onChange={(e) => setPick(m, { sa: slDigit(e.target.value) })} />
+                    <span className="vs">:</span>
+                    <input inputMode="numeric" disabled={locked || !me} value={myPick?.sb ?? ""}
+                      aria-label={`${b?.name} exact score`} onChange={(e) => setPick(m, { sb: slDigit(e.target.value) })} />
+                    {m.status === "finished" && hasSl && (
+                      <span className="bebas" style={{ fontSize: 17, color: slHit ? "#bdf3d2" : "#f1a0a7" }}>
+                        {slHit ? "✓ +20" : "✗ +0"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
             {myOverride && baseLocked && <div className="lockline" style={{ color: "var(--gold-bright)" }}>🔓 Admin unlocked this for you — pick now</div>}
             {!locked && m.status !== "void" && !myOverride && <div className="lockline"><Countdown to={new Date(lockAt).toISOString()} /></div>}
             {m.status === "finished" && myPick && myPick.pred === res && (
@@ -2911,9 +3030,10 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
               <div className="others">
                 {game.players.map((p) => {
                   const pk = game.picks[m.id]?.[p.id];
-                  const lab = pk ? (pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : "Draw") : "—";
-                  const pts = pickPoints(m, pk);
-                  const cls = m.status === "finished" && pk ? (pk.pred === res ? "chip ok" : "chip bad") : "chip";
+                  const lab = pk?.pred ? (pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : "Draw") : "—";
+                  const ex = pickExtraPoints(m, pk);
+                  const pts = pickPoints(m, pk) + ex.qualPts + ex.slPts;
+                  const cls = m.status === "finished" && pk?.pred ? (pk.pred === res ? "chip ok" : "chip bad") : "chip";
                   return <span key={p.id} className={cls} style={{ cursor: "pointer" }} onClick={() => openProfile(p.id)}>{p.avatar} {p.name}: {lab}
                     {m.status === "finished" ? ` · +${pts}` : ""}</span>;
                 })}
@@ -2923,7 +3043,7 @@ function PicksPage({ game, me, mutate, fxStatus, onRefresh, onPickCelebrate, isA
           </div>
         );
       })}
-      <div className="note">All kickoff times are shown in your own timezone, automatically. Scoring — Group 3 · R32 5 · R16 8 · QF 10 · SF 13 · Final 18 for a correct result. Picks lock 2 hours before kickoff. Miss the window and it's 0 — no catch-up.</div>
+      <div className="note">All kickoff times are shown in your own timezone, automatically. 90-min result: SF 13 · Final 18 — Qualifies: +8 — Exact score: +20. Earlier rounds: Group 3 · R32 5 · R16 8 · QF 10. Picks lock 2h before kickoff. Miss the window and it's 0 — no catch-up.</div>
     </div>
   );
 }
@@ -3002,7 +3122,7 @@ function UnderdogPage({ game, me, mutate }) {
       </div>
 
       <div className="h-sec">Group-stage underdog table</div>
-      <div className="note" style={{ marginTop: 0, marginBottom: 10 }}>This ranking decides the Final 8 pick order. Ties go to the earlier pick.</div>
+      <div className="note" style={{ marginTop: 0, marginBottom: 10 }}>Group-stage underdog bragging rights. Ties go to the earlier pick.</div>
       {order.map((r, i) => (
         <div key={r.p.id} className="lb-row" style={{ gridTemplateColumns: "34px 1fr 90px", cursor: "default" }}>
           <span className="rank">{i + 1}</span>
@@ -3014,63 +3134,242 @@ function UnderdogPage({ game, me, mutate }) {
   );
 }
 
-function Final8Page({ game, me, mutate }) {
-  const open = game.config.final8Open;
-  const order = pickOrder(game);
-  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
-  const alive = game.teams.filter((t) => UD_RANK[t.furthest] >= 1 && t.furthest !== "won" || t.furthest === "won");
-  const remaining = game.teams.filter((t) => t.furthest !== "out" && t.furthest !== "none" ? true : t.furthest === "none");
-  // candidate teams: anything not marked out
-  const pickable = game.teams.filter((t) => t.furthest !== "out");
-  const takenTeams = new Set(Object.values(game.final8).map((f) => f.teamId));
-  const nextPicker = order.find((r) => !game.final8[r.p.id]);
-  const myTurn = me && nextPicker && nextPicker.p.id === me.id;
+// New Final 4 picks close once any SF/Final result is in — after that a pick
+// would be made with hindsight (a known finalist guarantees consolation points).
+const final4Closed = (g) => g.matches.some((m) => (m.stage === "SF" || m.stage === "FINAL") && m.status === "finished");
 
-  const choose = (t) => mutate((g) => {
-    if (g.final8[me.id]) return;
-    g.final8[me.id] = { teamId: t.id, at: Date.now() };
-  });
+function Final4Page({ game, me, mutate, onPickCelebrate }) {
+  const [confirming, setConfirming] = useState(null);
+  const myPick = me ? game.final4?.[me.id] : null;
+  const fo = finalOutcome(game);
+  const rows = computeStandings(game);
+  const closed = final4Closed(game);
 
-  if (!open) return (
-    <div className="page">
-      <div className="h-sec">Final 8 picks</div>
-      <div className="banner">🔒 LOCKED — opens when the group stage is done. Your underdog points buy you a better spot in the queue.</div>
-    </div>
-  );
+  const lock = (team) => {
+    if (!me || myPick || closed) return;
+    mutate((g) => {
+      if (final4Closed(g)) return;
+      if (!g.final4) g.final4 = {};
+      if (g.final4[me.id]) return;
+      g.final4[me.id] = { team, at: Date.now() };
+    });
+    if (onPickCelebrate) onPickCelebrate({ name: team, flag: flagFor(team) });
+    setConfirming(null);
+  };
 
   return (
     <div className="page">
-      <div className="banner">GROUP STAGE COMPLETE. TIME TO BACK A WINNER.</div>
-      <div className="h-sec">Pick order</div>
-      {order.map((r, i) => {
-        const f8 = game.final8[r.p.id];
-        const team = f8 ? tById[f8.teamId] : null;
-        const isNext = nextPicker && nextPicker.p.id === r.p.id;
+      <div className="hero" style={{ padding: "26px 16px" }}>
+        <h1 style={{ fontSize: "clamp(30px,7.5vw,54px)" }}>FINAL 4 — CALL THE CHAMPION</h1>
+        <div className="sub">One pick. Locked forever. Full points if they lift it, half if they fall at the final.</div>
+      </div>
+
+      {fo?.champName && (
+        <div className="banner" style={{ marginTop: 14 }}>🏆 {fo.champName} ARE WORLD CHAMPIONS</div>
+      )}
+      {!me && <div className="banner" style={{ marginTop: 14 }}>Select your player in the top bar first.</div>}
+      {closed && !myPick && (
+        <div className="banner" style={{ marginTop: 14, borderColor: "var(--danger)", color: "#f1a0a7" }}>
+          🔒 Picks are closed — semi-final results are already in, so a pick now would be cheating.
+        </div>
+      )}
+
+      {myPick && (
+        <Sticker style={{ marginTop: 14 }}>
+          <div className="jersey"><span className="stamp" style={{ borderColor: "var(--gold)", color: "var(--gold-bright)" }}>🔒 LOCKED</span></div>
+          <div style={{ fontSize: 34 }}><Flag name={myPick.team} size={30} /></div>
+          <div className="bebas" style={{ fontSize: 26 }}>{myPick.team}</div>
+          <div className="barlow muted" style={{ fontSize: 12 }}>
+            WINS = {FINAL4_VALUE[myPick.team]} PTS · FINALIST = {FINAL4_CONSOLATION[myPick.team]} PTS
+          </div>
+        </Sticker>
+      )}
+
+      <div className="h-sec">The contenders</div>
+      <div className="ud-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))" }}>
+        {FINAL4_TEAMS.map((team) => {
+          const mine = myPick?.team === team;
+          return (
+            <div key={team} className={`ud-card ${myPick && !mine ? "taken" : ""}`}
+              style={mine ? { borderColor: "var(--gold)", boxShadow: "0 0 14px rgba(240,201,58,.35)" } : undefined}>
+              <div className="fl"><Flag name={team} size={30} /></div>
+              <div className="nm">{team}</div>
+              <div className="barlow gold" style={{ fontSize: 12, marginTop: 4 }}>WINS = {FINAL4_VALUE[team]} PTS</div>
+              <div className="barlow muted" style={{ fontSize: 11 }}>FINALIST = {FINAL4_CONSOLATION[team]} PTS</div>
+              {mine && <div className="barlow" style={{ color: "var(--gold-bright)", fontSize: 12, marginTop: 6 }}>🔒 YOUR CALL</div>}
+              {!myPick && !closed && confirming !== team && (
+                <button className="btn btn-gold" style={{ marginTop: 8, padding: "5px 10px", fontSize: 12 }}
+                  disabled={!me} onClick={() => setConfirming(team)}>Back them</button>
+              )}
+              {!myPick && !closed && confirming === team && (
+                <div style={{ marginTop: 8 }}>
+                  <div className="barlow" style={{ fontSize: 11, color: "var(--gold-bright)", marginBottom: 6 }}>
+                    Lock in {team}? This cannot be changed.
+                  </div>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                    <button className="btn btn-gold" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => lock(team)}>Lock it</button>
+                    <button className="btn btn-ghost" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => setConfirming(null)}>Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="h-sec">Everyone's calls</div>
+      {game.players.map((p) => {
+        const f4 = game.final4?.[p.id];
+        const r = rows.find((x) => x.p.id === p.id);
         return (
-          <div key={r.p.id} className="lb-row" style={{ gridTemplateColumns: "34px 1fr auto", cursor: "default", borderColor: isNext ? "var(--gold)" : undefined }}>
-            <span className="rank">{i + 1}</span>
-            <span><span className="pname" onClick={() => openProfile(r.p.id)}>{r.p.avatar} {r.p.name}</span> <span className="muted" style={{ fontSize: 12 }}>({r.udGroupPts} ud pts)</span></span>
-            {team ? <span className="bebas gold" style={{ fontSize: 18 }}>{team.flag} {team.name} · {F8_VALUE[team.furthest] || 0} pts</span>
-              : isNext ? <span className="stamp" style={{ transform: "none", borderColor: "var(--gold)", color: "var(--gold-bright)" }}>ON THE CLOCK</span>
-              : <span className="muted barlow" style={{ fontSize: 12 }}>waiting</span>}
+          <div key={p.id} className="lb-row" style={{ gridTemplateColumns: "1fr auto", cursor: "default" }}>
+            <span><span className="pname" onClick={() => openProfile(p.id)}>{p.avatar} {p.name}</span></span>
+            <span className="bebas gold" style={{ fontSize: 17, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {f4 ? <><Flag name={f4.team} size={15} /> {f4.team}{fo ? ` · +${r?.f4Pts ?? 0} pts` : ""}</> : "—"}
+            </span>
           </div>
         );
       })}
+      <div className="note">Overlap is fine — everyone can back the same nation. Champions: France 5 · Argentina 10 · Spain 15 · England 20. Beaten finalist: half points (3 · 5 · 8 · 10). Fat-fingered it? Only the admin can clear a locked pick.</div>
+    </div>
+  );
+}
 
-      {myTurn && (
-        <>
-          <div className="h-sec">Pick your winner</div>
-          <div className="ud-grid">
-            {pickable.filter((t) => !takenTeams.has(t.id)).map((t) => (
-              <div key={t.id} className="ud-card">
-                <div className="fl"><Flag name={t.name} size={26} /></div><div className="nm">{t.name}</div>
-                <button className="btn btn-gold" style={{ marginTop: 6, padding: "5px 10px", fontSize: 12 }} onClick={() => choose(t)}>Back them</button>
+function GbSquadSection({ apiKey, team, canPick, onPick }) {
+  const [open, setOpen] = useState(false);
+  const [squad, setSquad] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [confirming, setConfirming] = useState(null);
+  const load = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (squad || !team?.apiTeamId) return;
+    setLoading(true); setErr("");
+    try {
+      const r = await fetch(`/api/fixtures?key=${encodeURIComponent(apiKey)}&type=squad&teamId=${encodeURIComponent(team.apiTeamId)}`);
+      const pl = await r.json().catch(() => ({}));
+      if (pl.error) setErr(pl.error); else setSquad(pl.team?.squad || []);
+    } catch (e) { setErr("Couldn't load squad."); }
+    setLoading(false);
+  };
+  if (!team?.apiTeamId) return null;
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <button className="btn btn-ghost" style={{ width: "100%", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={load}>
+        {open ? "▲" : "▼"} <Flag name={team.name} size={16} /> {team.name}
+      </button>
+      {open && (
+        <div className="panel" style={{ marginTop: 6, padding: 10 }}>
+          {loading && <div className="lockline">Loading squad…</div>}
+          {err && <div className="note" style={{ color: "var(--danger)" }}>{err}</div>}
+          {squad && squad.length === 0 && <div className="note">No squad data for this team yet.</div>}
+          {squad && squad.map((pl) => (
+            <React.Fragment key={pl.id}>
+              <div className="xi-p" style={{ cursor: canPick ? "pointer" : "default", padding: "6px 4px" }}
+                onClick={() => canPick && setConfirming(confirming === pl.id ? null : pl.id)}>
+                <span style={{ flex: 1 }}>{pl.name}</span>
+                {pl.position && <span className="xi-pos">{pl.position}</span>}
+                <span className="chip" style={{ borderColor: "rgba(240,201,58,.4)", color: "var(--gold-bright)", flex: "0 0 auto" }}>{gbValue(pl.name)} pts</span>
               </div>
-            ))}
-          </div>
-          <div className="note">You're picking the team you think wins the whole thing. QF 10 · SF 20 · Final 35 · Champions 50.</div>
+              {canPick && confirming === pl.id && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 4px 8px", flexWrap: "wrap" }}>
+                  <span className="barlow" style={{ fontSize: 11, color: "var(--gold-bright)" }}>Lock in {pl.name}? This cannot be changed.</span>
+                  <button className="btn btn-gold" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => onPick(team, pl)}>Lock it</button>
+                  <button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setConfirming(null)}>Cancel</button>
+                </div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// New Golden Boot picks close once the winner is named or the final is done —
+// after that the pick would just copy a known answer.
+const goldenBootClosed = (g) => !!g.goldenBootWinner || g.matches.some((m) => m.stage === "FINAL" && m.status === "finished");
+
+function GoldenBootPage({ game, me, mutate }) {
+  const myPick = me ? game.goldenBoot?.[me.id] : null;
+  const winner = game.goldenBootWinner;
+  const closed = goldenBootClosed(game);
+  const rows = computeStandings(game);
+  const aliveIds = new Set();
+  for (const m of game.matches) {
+    if (m.status === "finished" || m.status === "void") continue;
+    if (m.teamA) aliveIds.add(m.teamA);
+    if (m.teamB) aliveIds.add(m.teamB);
+  }
+  const aliveTeams = game.teams.filter((t) => aliveIds.has(t.id)).sort((a, b) => a.name.localeCompare(b.name));
+
+  const pickPlayer = (team, pl) => {
+    if (!me || myPick || closed) return;
+    SFX.pick();
+    mutate((g) => {
+      if (goldenBootClosed(g)) return;
+      if (!g.goldenBoot) g.goldenBoot = {};
+      if (g.goldenBoot[me.id]) return;
+      g.goldenBoot[me.id] = { player: pl.name, team: team.name, at: Date.now() };
+    });
+  };
+
+  return (
+    <div className="page">
+      <div className="hero" style={{ padding: "26px 16px" }}>
+        <h1 style={{ fontSize: "clamp(28px,7vw,52px)" }}>GOLDEN BOOT — WHO FINISHES TOP SCORER?</h1>
+        <div className="sub">One pick. Locked. Favourites pay less, punts pay 20.</div>
+      </div>
+
+      {winner && (
+        <div className="banner" style={{ marginTop: 14, borderColor: "var(--gold-bright)" }}>
+          👟 GOLDEN BOOT WINNER: {winner}
+        </div>
+      )}
+      {!me && <div className="banner" style={{ marginTop: 14 }}>Select your player in the top bar first.</div>}
+
+      {myPick && (
+        <Sticker style={{ marginTop: 14 }}>
+          <div className="jersey"><span className="stamp" style={{ borderColor: "var(--gold)", color: "var(--gold-bright)" }}>🔒 LOCKED</span></div>
+          <div style={{ fontSize: 30 }}>👟 <Flag name={myPick.team} size={24} /></div>
+          <div className="bebas" style={{ fontSize: 26 }}>{myPick.player}</div>
+          <div className="barlow muted" style={{ fontSize: 12 }}>{myPick.team} · WORTH {gbValue(myPick.player)} PTS</div>
+        </Sticker>
+      )}
+
+      {!myPick && closed && (
+        <div className="banner" style={{ marginTop: 14, borderColor: "var(--danger)", color: "#f1a0a7" }}>
+          🔒 Picks are closed — the winner is already decided.
+        </div>
+      )}
+      {!myPick && !closed && (
+        <>
+          <div className="h-sec">Pick your striker</div>
+          <div className="note" style={{ marginTop: 0, marginBottom: 10 }}>Mbappé or Messi pay 8 · Bellingham or Kane pay 12 · anyone else pays 20. Tap a team to browse its squad.</div>
+          {!game.config.apiKey && <div className="panel muted">Squads need the football-data.org API key (set in Admin).</div>}
+          {aliveTeams.length === 0 && <div className="panel muted">No teams still alive — the tournament is done.</div>}
+          {aliveTeams.map((t) => (
+            <GbSquadSection key={t.id} apiKey={game.config.apiKey} team={t} canPick={!!me && !myPick} onPick={pickPlayer} />
+          ))}
         </>
       )}
+
+      <div className="h-sec">Everyone's picks</div>
+      {game.players.map((p) => {
+        const gb = game.goldenBoot?.[p.id];
+        const r = rows.find((x) => x.p.id === p.id);
+        return (
+          <div key={p.id} className="lb-row" style={{ gridTemplateColumns: "1fr auto", cursor: "default" }}>
+            <span><span className="pname" onClick={() => openProfile(p.id)}>{p.avatar} {p.name}</span>
+              {gb && <span className="muted" style={{ fontSize: 12 }}> · {gb.team}</span>}</span>
+            <span className="bebas gold" style={{ fontSize: 17 }}>
+              {gb ? (winner ? `${gb.player} · +${r?.gbPts ?? 0} pts` : `${gb.player} · ${gbValue(gb.player)} pts`) : "—"}
+            </span>
+          </div>
+        );
+      })}
+      <div className="note">Overlap is fine. The admin names the official winner once the tournament ends — that's when points land.</div>
     </div>
   );
 }
@@ -3096,7 +3395,7 @@ function LeaderboardPage({ game, meId }) {
     if (idx === 0 && tab === "overall") b.push("👑");
     const sk = streakFor(game, r.p.id);
     if (sk >= 3) b.push("🔥");
-    const played = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id]).length;
+    const played = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id]?.pred).length;
     const correct = game.matches.filter((m) => m.status === "finished" && pickPoints(m, game.picks[m.id]?.[r.p.id]) > 0).length;
     const acc = played ? correct / played : 0;
     if (played >= 4 && acc >= 0.7) b.push("🎯");
@@ -3204,7 +3503,7 @@ function LeaderboardPage({ game, meId }) {
         if (myIdx <= 0) return null;
         const me_ = rows[myIdx], above = rows[myIdx - 1];
         const gap = above.total - me_.total;
-        const accOf = (pid) => { const pl = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[pid]).length; const c = game.matches.filter((m) => m.status === "finished" && pickPoints(m, game.picks[m.id]?.[pid]) > 0).length; return pl ? Math.round(c / pl * 100) : 0; };
+        const accOf = (pid) => { const pl = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[pid]?.pred).length; const c = game.matches.filter((m) => m.status === "finished" && pickPoints(m, game.picks[m.id]?.[pid]) > 0).length; return pl ? Math.round(c / pl * 100) : 0; };
         const myAcc = accOf(meId), upAcc = accOf(above.p.id);
         return (
           <div className="rivalry">
@@ -3220,7 +3519,7 @@ function LeaderboardPage({ game, meId }) {
           <button key={k} className={`btn ${tab === k ? "btn-gold" : "btn-ghost"}`} onClick={() => setTab(k)}>{lab}</button>
         ))}
       </div>
-      <div className="lb-head"><span>#</span><span>Player</span><span className="num">Daily</span><span className="num">Udog</span><span className="num">F8</span><span className="num">Total</span></div>
+      <div className="lb-head"><span>#</span><span>Player</span><span className="num">Daily</span><span className="num">Udog</span><span className="num">Bonus</span><span className="num">Total</span></div>
       {rows.map((r, i) => (
         <div key={r.p.id}>
           <div className={`lb-row ${i === 0 && tab === "overall" ? "top1" : ""}`} style={{ animationDelay: `${i * 60}ms` }} onClick={() => setOpenRow(openRow === r.p.id ? null : r.p.id)}>
@@ -3228,7 +3527,7 @@ function LeaderboardPage({ game, meId }) {
             <span><span className="pname" onClick={(e) => { e.stopPropagation(); openProfile(r.p.id); }}>{r.p.avatar} {r.p.name}</span> <span style={{ fontSize: 13 }}>{contention(r)}</span> {badgesFor(r, i).map((bd, bi) => <span key={bi} className="mbadge" style={{ animationDelay: `${bi * 0.1}s` }}>{bd}</span>)}</span>
             <span className="num">{r.daily}</span>
             <span className="num">{r.udPts}</span>
-            <span className="num">{r.f8Pts}</span>
+            <span className="num">{r.f4Pts + r.gbPts}</span>
             <span className="tot"><CountUp value={r.total} /></span>
           </div>
           {openRow === r.p.id && (
@@ -3241,14 +3540,19 @@ function LeaderboardPage({ game, meId }) {
               })()}
               <div className="muted" style={{ marginBottom: 6 }}>
                 Underdog: {r.udTeam ? `${r.udTeam.flag} ${r.udTeam.name} (${r.udPts} pts)` : "—"} ·
-                Final 8: {r.f8Team ? ` ${r.f8Team.flag} ${r.f8Team.name} (${r.f8Pts} pts)` : " —"} ·
+                Final 4: {r.f4 ? `${r.f4.team} (${r.f4Pts} pts)` : "— (0 pts)"} ·
+                Golden Boot: {r.gb ? `${r.gb.player} (${r.gbPts} pts)` : "— (0 pts)"}
+              </div>
+              <div className="muted" style={{ marginBottom: 6 }}>
+                Qualifies: +{r.qualPts} · Scorelines: +{r.slPts} ·
                 Group daily: {r.groupDaily} · Knockout daily: {r.koDaily}{r.adjust ? ` · Bonus/adjust: ${r.adjust > 0 ? "+" : ""}${r.adjust}` : ""}
               </div>
               {game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id]).map((m) => {
                 const pk = game.picks[m.id][r.p.id];
                 const a = tById[m.teamA], b = tById[m.teamB];
-                const lab = pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : "Draw";
-                const pts = pickPoints(m, pk);
+                const lab = pk.pred === "A" ? a?.name : pk.pred === "B" ? b?.name : pk.pred === "D" ? "Draw" : "—";
+                const ex = pickExtraPoints(m, pk);
+                const pts = pickPoints(m, pk) + ex.qualPts + ex.slPts;
                 return <div key={m.id} style={{ padding: "3px 0", color: pts > 0 ? "#bdf3d2" : "#f1a0a7" }}>
                   {a?.flag} {m.scoreA}–{m.scoreB} {b?.flag} · picked {lab} · +{pts}
                 </div>;
@@ -3322,11 +3626,16 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
     </div>
   );
 
-  const enterResult = (m, sa, sb) => {
+  const enterResult = (m, sa, sb, qual) => {
     if (sa === "" || sb === "") return;
     mutate((g) => {
       const mm = g.matches.find((x) => x.id === m.id);
       mm.scoreA = Number(sa); mm.scoreB = Number(sb); mm.status = "finished";
+      if (mm.stage === "SF" || mm.stage === "FINAL") {
+        // 90-min winner decides the qualifier automatically; a level score
+        // needs the admin's A/B call (extra time / penalties).
+        mm.qualifier = Number(sa) > Number(sb) ? "A" : Number(sb) > Number(sa) ? "B" : (qual || mm.qualifier || null);
+      }
       advanceFurthestOnResult(g, mm);
     });
     fireConfetti();
@@ -3349,10 +3658,6 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
         <label className="barlow muted" style={{ fontSize: 12 }}>Admin password
           <input key={"pw" + game.config.adminPass} style={{ width: "100%", marginTop: 4 }} defaultValue={game.config.adminPass}
             onBlur={(e) => mutate((g) => { g.config.adminPass = e.target.value; })} /></label>
-        <label className="barlow muted" style={{ fontSize: 12 }}>Final 8 picks
-          <button className={`btn ${game.config.final8Open ? "btn-danger" : "btn-gold"}`} style={{ width: "100%", marginTop: 4 }}
-            onClick={() => mutate((g) => { g.config.final8Open = !g.config.final8Open; })}>
-            {game.config.final8Open ? "Close window" : "Open window (LOCKED → UNLOCKED)"}</button></label>
       </div>
 
       <div className="h-sec">Live fixtures (football-data.org)</div>
@@ -3395,7 +3700,7 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
                 {p.pin && <button className="btn btn-ghost" style={{ padding: "3px 8px", fontSize: 11 }}
                   onClick={() => { if (confirm(`Reset ${p.name}'s PIN? They'll set a new one next time they select their name.`)) mutate((g) => { const gp = g.players.find((x) => x.id === p.id); if (gp) delete gp.pin; }); }}>Reset PIN</button>}
                 <button className="btn btn-danger" style={{ padding: "3px 8px", fontSize: 11 }}
-                  onClick={() => { if (confirm(`Remove ${p.name}?`)) mutate((g) => { g.players = g.players.filter((x) => x.id !== p.id); delete g.underdog[p.id]; delete g.final8[p.id]; }); }}>Remove</button>
+                  onClick={() => { if (confirm(`Remove ${p.name}?`)) mutate((g) => { g.players = g.players.filter((x) => x.id !== p.id); delete g.underdog[p.id]; if (g.final8) delete g.final8[p.id]; if (g.final4) delete g.final4[p.id]; if (g.goldenBoot) delete g.goldenBoot[p.id]; }); }}>Remove</button>
               </div>
             );
           })}
@@ -3419,7 +3724,7 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
           })}>Load official WC2026 teams + all 72 group fixtures</button>
         )}
         {game.teams.length > 0 && <div className="note" style={{ marginTop: 0 }}>
-          Toggle underdog eligibility, set each team's furthest stage (drives underdog + Final 8 points), and mark group sweeps.
+          Toggle underdog eligibility, set each team's furthest stage (drives underdog points), and mark group sweeps.
         </div>}
         <div style={{ marginTop: 10, maxHeight: 340, overflowY: "auto" }}>
           {tSorted.map((t) => (
@@ -3468,8 +3773,11 @@ function AdminPage({ game, mutate, isAdmin, setIsAdmin, fireConfetti, onRefresh,
       <div className="h-sec">Underdog exceptions</div>
       <AdminUnderdogOverridePanel game={game} mutate={mutate} />
 
+      <div className="h-sec">Mega update — Final 4, Golden Boot & qualifiers</div>
+      <AdminMegaPanel game={game} mutate={mutate} />
+
       <div className="h-sec">Danger zone</div>
-      <button className="btn btn-danger" onClick={() => { if (confirm("Wipe the ENTIRE game? This cannot be undone.")) mutate((g) => { Object.assign(g, JSON.parse(JSON.stringify(DEFAULT_GAME))); }); }}>Reset whole league</button>
+      <button className="btn btn-danger" onClick={() => { if (confirm("Wipe the ENTIRE game? This cannot be undone.")) mutate((g) => { for (const k of Object.keys(g)) delete g[k]; Object.assign(g, JSON.parse(JSON.stringify(DEFAULT_GAME))); }); }}>Reset whole league</button>
     </div>
   );
 }
@@ -3589,9 +3897,92 @@ function AdminUnderdogOverridePanel({ game, mutate }) {
   );
 }
 
+function AdminMegaPanel({ game, mutate }) {
+  const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
+  const [gbWinner, setGbWinner] = useState(game.goldenBootWinner || "");
+  const wouldScore = gbWinner.trim()
+    ? game.players.filter((p) => gbMatches(game.goldenBoot?.[p.id]?.player, gbWinner.trim()))
+    : [];
+  const sfFinal = game.matches.filter((m) => (m.stage === "SF" || m.stage === "FINAL") && m.status !== "void")
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+  const setQualifier = (mId, q) => mutate((g) => {
+    const mm = g.matches.find((x) => x.id === mId);
+    if (!mm) return;
+    mm.qualifier = mm.qualifier === q ? null : q;
+    if (mm.status === "finished") advanceFurthestOnResult(g, mm);
+  });
+  const clearF4 = (p) => { if (confirm(`Clear ${p.name}'s Final 4 pick? They can then pick again.`)) mutate((g) => { if (g.final4) delete g.final4[p.id]; }); };
+  const clearGb = (p) => { if (confirm(`Clear ${p.name}'s Golden Boot pick? They can then pick again.`)) mutate((g) => { if (g.goldenBoot) delete g.goldenBoot[p.id]; }); };
+
+  return (
+    <>
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <div className="barlow muted" style={{ fontSize: 12, marginBottom: 6 }}>Golden Boot winner</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input style={{ flex: 1, minWidth: 180 }} placeholder="e.g. Kylian Mbappé (blank clears)"
+            value={gbWinner} onChange={(e) => setGbWinner(e.target.value)} />
+          <button className="btn btn-gold" onClick={() => mutate((g) => {
+            const v = gbWinner.trim();
+            if (v) g.goldenBootWinner = v; else delete g.goldenBootWinner;
+          })}>Save</button>
+        </div>
+        <div className="note">
+          {gbWinner.trim()
+            ? wouldScore.length
+              ? <>Would score with this value: {wouldScore.map((p) => `${p.avatar} ${p.name} (+${gbValue(game.goldenBoot[p.id].player)})`).join(" · ")}</>
+              : "No player's pick matches this value."
+            : "Saving a blank clears the winner (nobody scores)."}
+        </div>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <div className="barlow muted" style={{ fontSize: 12, marginBottom: 6 }}>Mercy clears — the only way to change a locked pick</div>
+        {game.players.map((p) => {
+          const f4 = game.final4?.[p.id];
+          const gb = game.goldenBoot?.[p.id];
+          return (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 0", borderBottom: "1px dashed rgba(138,170,150,.15)" }}>
+              <span style={{ minWidth: 120, fontSize: 13 }}>{p.avatar} {p.name}</span>
+              <span className="muted" style={{ fontSize: 12, flex: 1 }}>
+                🎯 {f4 ? f4.team : "—"} · 👟 {gb ? gb.player : "—"}
+              </span>
+              <button className="btn btn-ghost" style={{ padding: "3px 8px", fontSize: 11 }} disabled={!f4} onClick={() => clearF4(p)}>Clear Final 4</button>
+              <button className="btn btn-ghost" style={{ padding: "3px 8px", fontSize: 11 }} disabled={!gb} onClick={() => clearGb(p)}>Clear Golden Boot</button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="panel">
+        <div className="barlow muted" style={{ fontSize: 12, marginBottom: 6 }}>Qualifier overrides — who went through (SF & Final)</div>
+        {sfFinal.length === 0 && <div className="muted" style={{ fontSize: 13 }}>No SF/Final fixtures loaded yet.</div>}
+        {sfFinal.map((m) => {
+          const a = tById[m.teamA], b = tById[m.teamB];
+          return (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 0", borderBottom: "1px dashed rgba(138,170,150,.15)" }}>
+              <span style={{ flex: 1, minWidth: 160, fontSize: 13 }}>{STAGE_LABEL[m.stage]} · {a?.name} v {b?.name}</span>
+              <button className={`btn ${m.qualifier === "A" ? "btn-gold" : "btn-ghost"}`} style={{ padding: "4px 8px", fontSize: 11 }}
+                onClick={() => setQualifier(m.id, "A")}>{a?.name?.slice(0, 3) || "A"} through</button>
+              <button className={`btn ${m.qualifier === "B" ? "btn-gold" : "btn-ghost"}`} style={{ padding: "4px 8px", fontSize: 11 }}
+                onClick={() => setQualifier(m.id, "B")}>{b?.name?.slice(0, 3) || "B"} through</button>
+            </div>
+          );
+        })}
+        <div className="note">The qualifier pays the +8 "who goes through" picks and — on the Final — decides the Final 4 champion when the 90-min score is level. Fixture syncs fill it from the API when it's empty; a value you set here is never overwritten by a sync. If you flip it after a result was saved, also double-check the team's "furthest stage" in the Teams panel — that only ever moves forward automatically.</div>
+      </div>
+    </>
+  );
+}
+
 function AdminResultRow({ m, a, b, onSave, onVoid, onDelete }) {
   const [sa, setSa] = useState(m.scoreA ?? "");
   const [sb, setSb] = useState(m.scoreB ?? "");
+  const [qual, setQual] = useState(m.qualifier || "");
+  const isKoDecider = m.stage === "SF" || m.stage === "FINAL";
+  const level = sa !== "" && sb !== "" && Number(sa) === Number(sb);
+  // auto-select the higher scorer; only a level 90-min score needs the toggle
+  const effQual = !isKoDecider ? "" : sa !== "" && sb !== "" && !level ? (Number(sa) > Number(sb) ? "A" : "B") : qual;
+  const needsQual = isKoDecider && level && !qual;
   return (
     <div className="panel" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8, opacity: m.status === "void" ? 0.5 : 1 }}>
       <span style={{ minWidth: 180 }}>{a?.flag} {a?.name} v {b?.flag} {b?.name}</span>
@@ -3599,16 +3990,26 @@ function AdminResultRow({ m, a, b, onSave, onVoid, onDelete }) {
       <input style={{ width: 50, textAlign: "center" }} inputMode="numeric" value={sa} onChange={(e) => setSa(e.target.value.replace(/\D/g, ""))} aria-label="home score" />
       <span>–</span>
       <input style={{ width: 50, textAlign: "center" }} inputMode="numeric" value={sb} onChange={(e) => setSb(e.target.value.replace(/\D/g, ""))} aria-label="away score" />
-      <button className="btn btn-gold" style={{ padding: "6px 12px" }} onClick={() => onSave(m, sa, sb)}>Save result</button>
+      {isKoDecider && (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span className="muted barlow" style={{ fontSize: 11 }}>Who went through?</span>
+          <button className={`btn ${effQual === "A" ? "btn-gold" : "btn-ghost"}`} style={{ padding: "4px 8px", fontSize: 11 }}
+            disabled={!level && sa !== "" && sb !== ""} onClick={() => setQual("A")}>{a?.name?.slice(0, 3) || "A"}</button>
+          <button className={`btn ${effQual === "B" ? "btn-gold" : "btn-ghost"}`} style={{ padding: "4px 8px", fontSize: 11 }}
+            disabled={!level && sa !== "" && sb !== ""} onClick={() => setQual("B")}>{b?.name?.slice(0, 3) || "B"}</button>
+        </span>
+      )}
+      <button className="btn btn-gold" style={{ padding: "6px 12px" }} disabled={needsQual} onClick={() => onSave(m, sa, sb, effQual)}>Save result</button>
       <button className="btn btn-ghost" style={{ padding: "6px 12px" }} onClick={onVoid}>{m.status === "void" ? "Unvoid" : "Void"}</button>
       <button className="btn btn-danger" style={{ padding: "6px 12px" }} onClick={onDelete}>Delete</button>
-      {m.status === "finished" && <span className="chip ok">FT {m.scoreA}–{m.scoreB}</span>}
+      {m.status === "finished" && <span className="chip ok">FT {m.scoreA}–{m.scoreB}{isKoDecider && m.qualifier ? ` · ${m.qualifier === "A" ? a?.name : b?.name} through` : ""}</span>}
+      {isKoDecider && <div className="note" style={{ width: "100%", marginTop: 4 }}>SF/Final: enter the <b>90-minute</b> score (that's what result + exact-score picks pay on). The winner auto-fills "who went through"; if the 90-min score is level you must set it yourself — it decides the +8 qualifier picks{m.stage === "FINAL" ? " and the Final 4 champion" : ""}.</div>}
     </div>
   );
 }
 
 function playerStats(game, pid) {
-  const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[pid]);
+  const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[pid]?.pred);
   let correct = 0;
   const tById = Object.fromEntries(game.teams.map((t) => [t.id, t]));
   const bigWins = [];
@@ -3620,9 +4021,10 @@ function playerStats(game, pid) {
   bigWins.sort((a, b) => b.pts - a.pts);
   const row = computeStandings(game).find((r) => r.p.id === pid);
   return {
-    total: row?.total || 0, daily: row?.daily || 0, udPts: row?.up || 0, f8Pts: row?.fp || 0,
+    total: row?.total || 0, daily: row?.daily || 0, udPts: row?.udPts || 0,
+    bonusPts: (row?.f4Pts || 0) + (row?.gbPts || 0), f4: row?.f4 || null, gb: row?.gb || null,
     played: fin.length, correct, accuracy: fin.length ? Math.round((correct / fin.length) * 100) : 0,
-    streak: streakFor(game, pid), udTeam: row?.udT, f8Team: row?.f8T, tById,
+    streak: streakFor(game, pid), udTeam: row?.udTeam, tById,
     best: bigWins.slice(0, 3).map((bw) => `${bw.tById?.[bw.m.teamA]?.name || tById[bw.m.teamA]?.name} ${bw.m.scoreA}–${bw.m.scoreB} ${tById[bw.m.teamB]?.name} · +${bw.pts}`),
   };
 }
@@ -3742,8 +4144,18 @@ function ProfileBody({ game, pid, meId, onClose, mutate, isPage }) {
             <div className="stat-box"><div className="v">{st.streak}🔥</div><div className="l">Streak</div></div>
             <div className="stat-box"><div className="v">{st.correct}/{st.played}</div><div className="l">Correct</div></div>
             <div className="stat-box"><div className="v">{st.udPts}</div><div className="l">UD pts</div></div>
-            <div className="stat-box"><div className="v">{st.f8Pts}</div><div className="l">F8 pts</div></div>
+            <div className="stat-box"><div className="v">{st.bonusPts}</div><div className="l">Bonus pts</div></div>
           </div>
+        </div>
+      </div>
+
+      {/* LOCKED CALLS — Final 4 + Golden Boot */}
+      <div className="prof-section">
+        <div className="prof-sec-label">Locked calls</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+          <div>🎯 Final 4: {st.f4 ? <b style={{ color: "var(--gold-bright)" }}><Flag name={st.f4.team} size={14} /> {st.f4.team}</b> : <span className="muted">no pick yet</span>}</div>
+          <div>👟 Golden Boot: {st.gb ? <b style={{ color: "var(--gold-bright)" }}>{st.gb.player} ({st.gb.team})</b> : <span className="muted">no pick yet</span>}</div>
+          <div>🐉 Underdog: {st.udTeam ? <b style={{ color: "var(--gold-bright)" }}>{st.udTeam.flag} {st.udTeam.name}</b> : <span className="muted">no pick</span>}</div>
         </div>
       </div>
 
@@ -3765,9 +4177,9 @@ function ProfileBody({ game, pid, meId, onClose, mutate, isPage }) {
             {finMatches.map((m) => {
               const pk = game.picks[m.id]?.[pid];
               const res = matchResult(m);
-              const cls = !pk ? "no-pick" : pk.pred === res ? "hit" : "miss";
+              const cls = !pk?.pred ? "no-pick" : pk.pred === res ? "hit" : "miss";
               const a = tById[m.teamA], b = tById[m.teamB];
-              const lbl = a && b ? `${a.name} ${m.scoreA}–${m.scoreB} ${b.name}${pk ? (pk.pred === res ? " ✓" : " ✗") : " (no pick)"}` : "";
+              const lbl = a && b ? `${a.name} ${m.scoreA}–${m.scoreB} ${b.name}${pk?.pred ? (pk.pred === res ? " ✓" : " ✗") : " (no pick)"}` : "";
               return <span key={m.id} className={`hm-sq ${cls}`} onMouseEnter={() => setHmTip(lbl)} onMouseLeave={() => setHmTip("")} title={lbl} />;
             })}
           </div>
@@ -3939,7 +4351,7 @@ function computeShame(game) {
   }
   // Cold streaks: most recent finished picks all wrong
   for (const r of rows) {
-    const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id])
+    const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id]?.pred)
       .sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
     let cold = 0;
     for (const m of fin) { if (game.picks[m.id][r.p.id].pred !== matchResult(m)) cold++; else break; }
@@ -3947,7 +4359,7 @@ function computeShame(game) {
   }
   // Backed a team that got battered (lost by 3+) — most recent
   for (const r of rows) {
-    const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id])
+    const fin = game.matches.filter((m) => m.status === "finished" && game.picks[m.id]?.[r.p.id]?.pred)
       .sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
     for (const m of fin.slice(0, 4)) {
       const pk = game.picks[m.id][r.p.id];
@@ -4056,13 +4468,13 @@ function ShamePage({ game, me, mutate }) {
 /* ════════════════ APP SHELL ════════════════ */
 const SECTIONS = [
   { key: "home", icon: "🏟️", label: "Home", colour: "#16c264", defaultPage: "today", pages: ["today", "home", "scores"] },
-  { key: "predict", icon: "✅", label: "Predict", colour: "#d4af37", defaultPage: "picks", pages: ["picks", "board", "underdog", "final8", "prizes"] },
+  { key: "predict", icon: "✅", label: "Predict", colour: "#d4af37", defaultPage: "picks", pages: ["picks", "board", "underdog", "final4", "goldenboot", "prizes"] },
   { key: "social", icon: "⚔️", label: "Social", colour: "#9b59b6", defaultPage: "war", pages: ["war", "stats", "shame"] },
   { key: "me", icon: "👤", label: "Me", colour: "#e67e22", defaultPage: "profile", pages: ["profile", "admin"] },
 ];
 const PAGE_LABELS = {
   today: "Today", home: "Dashboard", scores: "Scores",
-  picks: "Picks", board: "Table", underdog: "Underdog", final8: "Final 8", prizes: "Prizes",
+  picks: "Picks", board: "Table", underdog: "Underdog", final4: "Final 4", goldenboot: "Golden Boot", prizes: "Prizes",
   war: "War Room", stats: "Stats", shame: "Shame",
   profile: "Profile", admin: "Admin",
 };
@@ -4073,7 +4485,8 @@ const PAGE_ICONS = {
   picks: "✅",
   board: "🏆",
   underdog: "🐉",
-  final8: "🎯",
+  final4: "🎯",
+  goldenboot: "👟",
   prizes: "💰",
   war: "⚔️",
   stats: "🎯",
@@ -4270,7 +4683,8 @@ export default function App() {
         for (const m of finished) {
           if (seen.has(m.id)) continue;
           const pk = game.picks[m.id]?.[meId];
-          const p = pickPoints(m, pk);
+          const ex = pickExtraPoints(m, pk);
+          const p = pickPoints(m, pk) + ex.qualPts + ex.slPts;
           if (p > 0) { pts += p; wins.push(`✓ ${tById[m.teamA]?.name} ${m.scoreA}–${m.scoreB} ${tById[m.teamB]?.name} · +${p}`); }
         }
         if (pts > 0) {
@@ -4438,7 +4852,8 @@ export default function App() {
       {tab === "war" && <WarRoom game={game} me={me} mutate={mutate} onRefresh={() => pullFixtures(true)} />}
       {tab === "stats" && <StatsPage game={game} me={me} mutate={mutate} />}
       {tab === "underdog" && <UnderdogPage game={game} me={me} mutate={mutate} />}
-      {tab === "final8" && <Final8Page game={game} me={me} mutate={mutate} />}
+      {tab === "final4" && <Final4Page game={game} me={me} mutate={mutate} onPickCelebrate={celebratePick} />}
+      {tab === "goldenboot" && <GoldenBootPage game={game} me={me} mutate={mutate} />}
       {tab === "board" && <LeaderboardPage game={game} meId={meId} />}
       {tab === "shame" && <ShamePage game={game} me={me} mutate={mutate} />}
       {tab === "prizes" && <PrizesPage game={game} />}
